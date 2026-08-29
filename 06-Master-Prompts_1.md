@@ -23,11 +23,19 @@ description of the change. A separate step will turn your proposal into an actua
 TASK CONTEXT (fixed, does not change across iterations)
 ═══════════════════════════════════════════
 Dataset: KuaiRand-Pure — {{ n_users }} users, {{ n_items }} items, {{ n_interactions }}
-interactions. Relevance label: click = positive.
-Metrics: NDCG@10 and Recall@50, scored as the average absolute improvement over the
-official baseline on a hidden test set. You never see the hidden test set — you develop
-against the validation split only.
-Official baseline scores: NDCG@10 = {{ baseline_ndcg }}, Recall@50 = {{ baseline_recall }}
+interactions. Relevance label: long_view = 1 (did the user watch long enough to count).
+  # NOTE: this repo's actual evaluate.py scores GAUC + nDCG@5, primary = mean(GAUC, nDCG@5) —
+  # NOT NDCG@10/Recall@50. evaluate.py is a fixed, do-not-modify contract (see CLAUDE.md); if a
+  # future dataset/task genuinely uses NDCG@10+Recall@50 instead, swap this block, but for
+  # KuaiRand-Pure as currently wired these placeholders must resolve to GAUC/nDCG@5/primary.
+Metrics: GAUC and nDCG@5; primary = mean(GAUC, nDCG@5) is the ranking metric (see evaluate.py).
+Scored as improvement in `primary` over the official fm_official baseline. You develop and
+make every accept/reject decision against the **valid** split only — the test split's labels
+must never be read by any code path you (the agent) execute; only a human runs
+`submit.py --score --split test` manually. See AGENT_STRATEGY.md Q2 for what "hidden" means
+concretely in this repo (still open as of this revision).
+Official baseline (fm_official, see baseline_scores.json): GAUC = {{ baseline_gauc }},
+nDCG@5 = {{ baseline_ndcg5 }}, primary = {{ baseline_primary }}
 Hard rule: no external training data or pretrained weights trained on this benchmark's
 test labels. Only the provided KuaiRand splits.
 Available feature/side-info fields: {{ feature_list }}
@@ -38,15 +46,24 @@ CURRENT STATE (changes every iteration)
 ═══════════════════════════════════════════
 Iteration: {{ iteration_number }}
 Elapsed time / total budget: {{ elapsed_time }} / {{ total_budget }}  ({{ budget_fraction }}%)
-Current best validation score: NDCG@10 = {{ current_best_ndcg }}, Recall@50 = {{ current_best_recall }}
+Current best validation score: GAUC = {{ current_best_gauc }}, nDCG@5 = {{ current_best_ndcg5 }},
+primary = {{ current_best_primary }}
 Current best approach summary: {{ current_best_summary }}
 Iterations since last improvement: {{ stale_count }} (convergence triggers at N =
 {{ convergence_N }} with epsilon = {{ convergence_epsilon }})
+  # NOTE: convergence_N and convergence_epsilon are runtime template vars, correctly — do not
+  # hardcode numbers into this file. Both must be sourced from ONE place at runtime, matching
+  # baseline_scores.json's own convergence_rule: epsilon=0.002, N=3 (this repo's established
+  # convergence definition, see AGENT_STRATEGY.md's Stopping condition section and
+  # fm_official's std_over_5_seeds ≈ 0.0008 — the reason epsilon isn't set any tighter than
+  # 0.002). Whatever module ends up owning loop config (planned: agent/budget.py or a small
+  # agent/config.py) is the single source of truth these two get filled from — never duplicate
+  # the literal 0.002/3 in a second place.
 
 Recent history (last {{ history_window }} iterations, most recent last):
 {{ history_block }}
   # each entry formatted as:
-  # - iter {n}: [{stage}] "{hypothesis}" -> ndcg={x}, recall={y} ({kept/discarded})
+  # - iter {n}: [{stage}] "{hypothesis}" -> primary={p} (GAUC={g}, nDCG@5={n5}) ({kept/discarded})
 
 ═══════════════════════════════════════════
 BUDGET TIER — this changes what kind of idea is appropriate right now
@@ -102,8 +119,16 @@ OUTPUT FORMAT — return ONLY valid JSON, no other text, matching this schema ex
 {
   "problem_identified": "string",
   "hypothesis": {
-    "statement": "string — the specific, falsifiable change",
+    "statement": "string — the specific, falsifiable change, in one plain sentence a human
+      teammate could read cold (in a run log or dashboard, months later) and understand what
+      was tried and why, without re-reading this iteration's full context. Concrete nouns from
+      the task (field/model/hyperparam names), not code syntax and not vague ML-speak.",
     "target_stage": "features | model | training | sampling | eval_postprocessing",
+      # NOTE: eval_postprocessing means post-processing the SCORE ARRAY the model already
+      # produced (e.g. calibration, an ensemble blend of two runs' scores) before it's handed
+      # to evaluate.evaluate() — never a change to evaluate.py itself, which is fixed (see
+      # CLAUDE.md). The Guardrail step must reject any diff touching evaluate.py regardless of
+      # what target_stage claims.
     "reasoning": "string — why this should help, grounded in context above",
     "expected_effect": "string — rough direction/magnitude estimate"
   },
@@ -167,9 +192,12 @@ If you want the propose prompt's `reasoning` field to be more than generic ML ad
 
 ```
 Your loop design draws on published autonomous ML agent architectures (R&D-Agent,
-ML-Master, MLE-STAR). You are running a {{ greedy | chain | lightweight-tree }} search
-strategy — do not propose restructuring the search strategy itself, only propose changes
-within the current iteration's scope (features / model / training / sampling /
+ML-Master, MLE-STAR, AIRA). You are running a GREEDY / CHAIN search strategy: one active
+best solution, extended one hypothesis at a time — the same structure MLE-STAR uses, not
+R&D-Agent's parallel-branch-plus-merge exploration or ML-Master's MCTS (chosen for this
+project's compute/token budget, see AGENT_STRATEGY.md's search-strategy section for the
+full reasoning). Do not propose restructuring the search strategy itself, only propose
+changes within the current iteration's scope (features / model / training / sampling /
 eval-postprocessing). If you believe the search strategy itself is the bottleneck, say so
 explicitly in problem_identified rather than trying to work around it with an unrelated change.
 ```
@@ -180,5 +208,6 @@ This keeps the LLM from quietly trying to reinvent your architecture mid-run (e.
 
 - **Validate the JSON on every call.** If a response doesn't parse or is missing a required field, retry once with a short "your last response wasn't valid JSON, return only the JSON object" follow-up before giving up and logging it as a failed iteration.
 - **`{{ history_block }}` should be truncated**, not the full run history — feeding an ever-growing transcript burns tokens fast and degrades reasoning quality. A window of the last 8-10 iterations plus the single best-ever entry is usually enough; this is also a lever if your token spend is running high (Feasibility score).
-- **The debug-first workflow (10%-sample run) happens *before* this propose prompt's proposal reaches full training** — that's a code-level gate in your loop, not something the LLM decides. The propose prompt doesn't need to know about it.
-- **Every field in the JSON output maps directly to a field in your `iteration_log.jsonl` schema** from the planning templates doc — your logging function should be able to take this response object and write it straight to the log with no reshaping needed.
+- **The debug-first workflow happens *before* this propose prompt's proposal reaches full training** — a fixed-N sample (20,000 rows, not 10% — see AGENT_STRATEGY.md §1's trade-off note on KuaiRand-Pure's actual scale), that's a code-level gate in your loop, not something the LLM decides. The propose prompt doesn't need to know about it.
+- **Every field in the JSON output maps directly to a field in your `experiment_log.jsonl` schema** (AGENT_STRATEGY.md, Phase 2) — your logging function should be able to take this response object and write it straight to the log with no reshaping needed.
+- **`hypothesis.statement` is read by two audiences that both need it in plain language**: a human scanning the dashboard (AGENT_STRATEGY.md Phase 6), and next iteration's `{{ history_block }}` (the same string, unmodified, just window-truncated). Don't let the logging layer compress it into code-diff-shaped shorthand for either — keep it exactly what the model wrote.
