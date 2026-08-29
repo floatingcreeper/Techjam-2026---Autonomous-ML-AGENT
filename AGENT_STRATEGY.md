@@ -708,6 +708,132 @@ to early stopping) — flagged as a possible future refinement, not a defect to 
 v0.8's) fixes landed in the source files, it must be restarted — Python does not hot-reload edited
 `.py` files, so an already-running process keeps executing whatever code was loaded at its start.
 
+## v0.11 — real feature-selection capability (resolves decision #9)
+
+**Asked directly**: what can the agent do besides tweaking hyperparameters, and is it actually
+rewriting any of the codebase? Honest answer at the time: nothing — `set_hyperparam` was the only
+executable action, and the Coding step never touched a `.py` file. Every real run so far had the
+model's actual first instinct (a features hypothesis) rejected as not-implementable.
+
+**Implemented, not just designed**: the agent can now genuinely add/remove real CWM signals, not
+just retune existing hyperparameters. This is **config-driven feature selection** (the agent picks
+from a fixed, pre-built list of real columns, executed by code written once, in advance) — NOT
+free-form code generation (the agent does not write novel Python at runtime). That distinction is
+deliberate: true arbitrary code-generation would need a real Guardrail overhaul (static analysis
+of generated code, sandboxing) before it's safe to hand to a 7B model that's already needed a lot
+of structural scaffolding to behave reliably — flagged as a possible future ask, not attempted here.
+
+- `data.py` — additive only (FIELDS/`encode()`/`load()` completely unchanged, still exactly what
+  `baseline.py`/`submit.py`/`ablation_features.py` use): `EXTRA_FIELDS` (music_id, video_type,
+  upload_type, follow_user_num_range, register_days_range, fans_user_num_range,
+  friend_user_num_range, user_active_degree) and `encode_with_extra_fields()` — resolves decision
+  #9 (the one shared join-logic implementation now, so nothing re-derives a third copy of what
+  `ablation_features.py` already prototypes standalone).
+- `models/fm_v1.py` — new variant, adds `extra_fields`/`data_dir` config keys on top of
+  `fm_v0.DEFAULT_CONFIG`; `extra_fields=[]` is byte-for-byte identical to `fm_v0` (**verified**:
+  exact `primary` match). Now the default model in `agent/orchestrator.py`.
+- `agent/action_space.py` — `toggle_field` moved from named-but-not-executable to genuinely
+  executable (`{"type": "toggle_field", "field": <one of EXTRA_FIELDS>, "op": "add"|"remove"}`).
+  `swap_model_variant` stays not-executable — `fm_v1` already subsumes `fm_v0`, nothing to swap.
+- `agent/prompts/code.md` + `agent/coding_agent.py` — the Coding step now knows `toggle_field` is
+  real, sees which extra fields are currently active, and is explicitly told to prefer it over a
+  hyperparameter tweak when the hypothesis is genuinely about a feature.
+- `agent/hypothesis_agent.py` — `feature_list` context now correctly says these fields are
+  genuinely toggleable (previously said they'd need code changes — no longer true).
+- **Real bug caught and fixed while wiring this in**: `fm_v1.DEFAULT_CONFIG` hardcodes its own
+  `data_dir` (for the side-info CSVs) separately from the `data_dir` the orchestrator actually
+  loads interaction logs from — a latent mismatch if anyone ever ran with a non-default
+  `--data_dir`. Fixed in `agent/orchestrator.py`: the actual invocation's `data_dir` always
+  overrides whatever a variant's `DEFAULT_CONFIG` says.
+- **Verified**: `fm_v1` with `extra_fields=[]` exactly reproduces `fm_v0` (regression check, bit-
+  identical `primary`). `fm_v1` with real extra fields (`music_id`, `user_active_degree`) trains
+  and evaluates correctly, produces a sane, different metrics dict. `toggle_field` unit-tested
+  (add/remove, bad field, bad op all behave correctly). Full end-to-end real run in progress as of
+  this entry — see the next Changelog entry for whether the agent actually chose `toggle_field`
+  for a real features hypothesis.
+
+## v0.12 — real code generation + AIDE-style solution tree + commit/revert decision tree
+
+**Asked for**: let the coding agent rewrite the codebase and decide whether to commit or revert,
+with decision trees for the revert call and a good sense of which branch to pursue — citing AIDE's
+tree architecture for efficient computation.
+
+**This reverses the v0.4 search-strategy decision, deliberately and on request.** v0.4 recommended
+greedy/chain (MLE-STAR's shape) and deferred tree search. The tree now earns its keep for a reason
+that only became visible once real code generation existed: a 7B model writing a whole model module
+fails *often*, and a chain has nowhere to put a failed-but-promising attempt except the bin. A tree
+gives it a DEBUG child instead. Still NOT adopting ML-Master's MCTS (no rollouts, no UCT, no
+backpropagation, no parallel branch fan-out) — this is AIDE's greedy tree, one node expanded per
+iteration.
+
+### Scope, stated plainly
+The agent now **writes and executes real Python modules** — genuinely new model architectures, not
+config mutations. What it does NOT do is edit existing repo files: it writes *new* modules into
+`models/generated/`, and `evaluate.py`/`data.py`/`agent/*`/`submit.py` remain untouchable. That
+boundary is deliberate, not a shortcut: letting generated code rewrite the scoring contract or the
+train-only-fitting logic is how a competition entry gets silently invalidated, and it is exactly
+the risk v0.11 flagged as needing "a real Guardrail overhaul" before code generation was safe.
+
+### What was built
+- `agent/code_guardrail.py` — the Guardrail overhaul v0.11 promised. Real AST static analysis of
+  every generated module *before* it touches disk. Central rule: **generated code performs no file
+  or network I/O at all** — no `open()`, no `os`/`subprocess`/`sockets`/`urllib`/`pickle`, no
+  `exec`/`eval`/`compile`/`__import__`, no dunder introspection escapes, import allowlist only,
+  must define `train()`, and the literal string `'test'` is refused outright. That one no-I/O rule
+  does most of the safety work: generated code cannot read KuaiRand's CSVs itself, so the only data
+  it can ever see is the `splits` dict handed to it — which `agent/data_guard.py` already stripped
+  the test split from. It cannot leak what it cannot reach, and it cannot damage a repo it cannot
+  write to. **Verified against 9 adversarial cases** (file read, `os` import, `subprocess`,
+  `exec`, `().__class__.__bases__[0].__subclasses__()` escape, test-split reference, missing
+  `train()`, syntax error, plus a legitimate module that correctly passes).
+- `agent/prompts/write_model.md` + `agent/codegen_agent.py` — generation in three modes
+  (draft/debug/improve), fence-stripping, static analysis, and **retry with the specific rejection
+  reasons fed back** (up to 3 attempts). Nothing unsafe is ever written to disk.
+- `agent/solution_tree.py` — the AIDE tree. Nodes are complete solutions; operations are DRAFT /
+  DEBUG / IMPROVE. Where the efficiency comes from: DEBUG and IMPROVE start from an existing
+  module's source so the model edits rather than re-derives; selection is greedy (exactly one node
+  expanded per iteration, no rollouts); `MAX_DEBUG_DEPTH=3` caps how much compute one broken idea
+  can absorb. Selection order — **debug first** (cheapest possible win: the idea is already
+  written, it just doesn't run), **draft while the tree is narrow** (`MIN_DRAFTS=2`, so it doesn't
+  lock onto the first working idea), **improve the best working node** otherwise.
+- `agent/decision.py` — the explicit commit/revert decision tree, replacing scattered `if accept:`
+  checks. Every verdict records the exact branch path it took (`decision.path`), logged per
+  iteration, so "why was this kept or thrown away" is auditable rather than reconstructed.
+  Outcomes: `COMMIT` / `KEEP_NODE` / `REVERT` / `REJECT_UNSAFE`. **`KEEP_NODE` is the outcome that
+  only makes sense once there's a tree**: in the old chain, "didn't beat current-best" and "throw
+  it away" were the same thing; in a tree, a solution that runs correctly but scores slightly below
+  the incumbent is still a legitimate base to IMPROVE from later — it's marked WORKING and kept,
+  it just doesn't move current-best. Only genuinely broken candidates become BUGGY, and only BUGGY
+  nodes are DEBUG-eligible. **Verified across all 8 decision paths.**
+- **"Commit" is deliberately two separate things.** `COMMIT` at the tree/state level means "accept
+  as the new current-best". Writing an actual **git** commit is a separate, opt-in side effect
+  (`agent/cli.py --git-snapshot`, `decision.GIT_SNAPSHOT`, **off by default**) — an autonomous loop
+  writing to real git history should be a choice the user makes deliberately, and the `runs/`
+  artifacts already record everything needed to reproduce a result without it.
+- Orchestrator routing, integration into `logging_schema` (`decision`, `node_id` fields),
+  `agent/cli.py` (`--git-snapshot`, tree rendering in `status`).
+
+### Bugs found and fixed while building this
+- **Selection policy re-debugged already-fixed branches**: a BUGGY node whose DEBUG child had
+  already reached WORKING stayed DEBUG-eligible forever, burning an LLM call + training run per
+  iteration re-fixing something already fixed. Caught in unit-testing `select()`; fixed with
+  `_has_working_descendant()`.
+- **`_format_action` crashed on the first non-hyperparameter action** (`KeyError: 'param'` — it
+  assumed `set_hyperparam`'s shape unconditionally). Found live the first time the agent actually
+  chose a `toggle_field` action. Fixed and made generic over action type so it can't recur for a
+  future action type either.
+
+### The first real generated module — a representative result worth recording
+Asked for "a per-user popularity prior blended with the FM score", `qwen2.5-coder:7b` produced a
+module that **passed static analysis on the first attempt** and followed the contract correctly
+(right imports, `non_train_splits()`, train-only fitting, proper `evaluate()` usage) — but was
+genuinely buggy: it indexed a numpy array with user_id *strings* (`pop_prior[user]`). `debug_run`
+caught it on the 20k sample in seconds, the decision tree returned `REVERT`/`is_buggy=True`, and it
+became a DEBUG-eligible node. That is the whole design working end to end, and it is also the
+honest expectation to set: **a 7B model writing whole model modules will fail often**, which is
+precisely why the debug-first gate and the tree's DEBUG operation matter more here than they did
+when the action space was config-only.
+
 ## Changelog
 - v0.1 — initial outline.
 - v0.2 — integrated 4 of R&D-Agent's 6 components (Yang et al. 2025, arXiv:2505.14738): debug-first

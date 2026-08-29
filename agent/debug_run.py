@@ -50,9 +50,40 @@ def _sample_rows(rows, n, seed):
     return [rows[i] for i in idx]
 
 
-def _is_plausible(metrics_by_split):
-    """No NaN/inf, primary (and its two components) in [0,1], every expected split present.
-    This is deliberately shallow — it's a crash/sanity gate, not a quality gate."""
+def check_coverage(metrics_by_split, splits):
+    """Did the model actually score EVERY row it was asked to? Returns (ok, reason).
+
+    evaluate.py does `zip(user_ids, labels, scores)`, which silently truncates to the shortest
+    argument — a model returning 5 scores for a 125k-row split is scored on those 5 rows and
+    hands back a perfectly plausible-looking primary in [0,1]. Range checks cannot see that.
+    Found live in an end-to-end orchestration test: a module whose predict() output was
+    accidentally sliced scored 0.5833 on three rows, passed every existing gate, and was
+    COMMITted as the new current-best over a genuinely better model.
+
+    The tell is evaluate()'s own `users` count: it counts distinct users that survived the zip,
+    so truncation collapses it. A correct module encodes and scores the whole split, so an exact
+    match is the right bar — a module that quietly drops rows is not eligible to win anyway,
+    since submissions must align row-for-row with data.load()'s output (see submit.py).
+    """
+    for name, m in metrics_by_split.items():
+        rows = splits.get(name)
+        if rows is None or not isinstance(m, dict):
+            continue
+        expected_users = len({x[1] for x in rows})
+        actual_users = m.get('users')
+        if actual_users is not None and actual_users != expected_users:
+            return False, (f"{name}: model scored only {actual_users} of {expected_users} users "
+                            f"- predict() returned fewer scores than there are rows, so "
+                            f"evaluate()'s zip() silently dropped the rest. Return one score per "
+                            f"row of the split.")
+    return True, "coverage OK"
+
+
+def _is_plausible(metrics_by_split, splits=None):
+    """No NaN/inf, primary (and its two components) in [0,1], every expected split present, and
+    every row actually scored. Still deliberately shallow — a crash/sanity gate, not a quality
+    gate — but "scored 3 rows out of 3000" is a crash, not a quality opinion (see
+    check_coverage)."""
     if not isinstance(metrics_by_split, dict) or not metrics_by_split:
         return False, f"train_fn returned {metrics_by_split!r}, expected a non-empty dict of split -> metrics"
     for name, m in metrics_by_split.items():
@@ -66,6 +97,10 @@ def _is_plausible(metrics_by_split):
                 return False, f"{name}.{key} is NaN/Inf ({v})"
             if not (0.0 <= v <= 1.0):
                 return False, f"{name}.{key}={v} outside the valid [0,1] range"
+    if splits is not None:
+        ok, reason = check_coverage(metrics_by_split, splits)
+        if not ok:
+            return False, reason
     return True, "sample run OK"
 
 
@@ -92,7 +127,7 @@ def debug_run(train_fn, splits, config, *, seed=0,
     t0 = time.time()
     try:
         sample_metrics = train_fn(debug_splits, debug_config)
-        ok, reason = _is_plausible(sample_metrics)
+        ok, reason = _is_plausible(sample_metrics, debug_splits)
     except Exception as e:  # noqa: BLE001 — intentionally broad: ANY candidate-code failure
         # (shape mismatch, KeyError from a bad field name, OOM, ...) must become a DebugResult,
         # not a crash. The Guardrail step is the first line of defense against obviously-bad

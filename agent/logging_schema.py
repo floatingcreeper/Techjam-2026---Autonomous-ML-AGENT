@@ -10,7 +10,7 @@ import time
 
 
 def new_record(*, iteration, proposal, code_diff, metrics, error_events, token_cost,
-                wall_clock_s, accepted, resulting_config=None):
+                wall_clock_s, accepted, resulting_config=None, decision=None, node_id=None):
     """proposal: the dict from agent.hypothesis_agent.propose()'s `.data` — stored verbatim
         ({problem_identified, hypothesis: {...}, implementation_sketch}), no reshaping, per
         06-Master-Prompts_1.md's own design goal. None if hypothesis generation itself failed.
@@ -38,6 +38,13 @@ def new_record(*, iteration, proposal, code_diff, metrics, error_events, token_c
         'implementation_sketch': proposal.get('implementation_sketch') if proposal else None,
         'code_diff': code_diff,
         'resulting_config': resulting_config,
+        # The commit/revert decision tree's verdict + the exact branch path it took
+        # (agent/decision.py) — this is what makes "why was this kept/thrown away" auditable in
+        # the log rather than something a human has to reconstruct from surrounding fields.
+        'decision': decision,
+        # Which agent/solution_tree.py node this iteration produced, so a log line can be traced
+        # back to its position in the search tree.
+        'node_id': node_id,
         'metrics': metrics,
         'error_events': error_events or [],
         'token_cost': token_cost or {'input_tokens': 0, 'output_tokens': 0},

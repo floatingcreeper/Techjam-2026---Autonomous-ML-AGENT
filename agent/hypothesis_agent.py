@@ -21,24 +21,21 @@ from agent import llm_client
 from agent.budget import budget_tier_instruction, iteration_budget_fraction
 from agent.config import CONVERGENCE_EPSILON, CONVERGENCE_N
 from agent.prompt_utils import fill_template, load_template, parse_json
+from data import EXTRA_FIELDS, FIELDS
 
 PROMPT_PATH = os.path.join(os.path.dirname(__file__), 'prompts', 'hypothesize.md')
 BASELINE_SCORES_PATH = 'baseline_scores.json'
 
 REQUIRED_TARGET_STAGES = {'features', 'model', 'training', 'sampling', 'eval_postprocessing'}
 
-# Mirrors data.FIELDS (the 5 fields currently in use) and ablation_features.py's USER_FE/VID_FE
-# (the CWM fields it's already prototyped joining in) — NOT re-imported from ablation_features.py,
-# because that file executes CSV reads and argv parsing at import time (it's a standalone script,
-# not a library); duplicating the two short lists here is the lesser evil until AGENT_STRATEGY.md
-# decision #9 (extracting shared join logic into data.py) actually happens.
-FIELDS_IN_USE = ['user_id', 'video_id', 'author_id', 'tab', 'dur_bucket']
-FIELDS_AVAILABLE_NOT_WIRED = (
-    "music_id, video_type, upload_type (video_features_basic_pure.csv); follow_user_num_range, "
-    "register_days_range, fans_user_num_range, friend_user_num_range, user_active_degree "
-    "(user_features_pure.csv) — ablation_features.py already prototypes joining these in, but "
-    "duplicates data.py's raw()/vocab logic rather than sharing it (a known repo debt, see "
-    "AGENT_STRATEGY.md decision #9)."
+# AGENT_STRATEGY.md decision #9 is resolved as of v0.11: data.encode_with_extra_fields() is now
+# the one shared join-logic implementation (see data.py), and agent/action_space.py's
+# `toggle_field` action makes EXTRA_FIELDS genuinely addable/removable, not just a description —
+# imported directly from data.py now rather than duplicated as a hardcoded string.
+FIELDS_IN_USE = FIELDS
+FIELDS_TOGGLEABLE = (
+    f"{', '.join(EXTRA_FIELDS)} — real columns, genuinely addable/removable via the "
+    f"toggle_field action (agent/action_space.py), not just a description."
 )
 # Present in the raw CSV logs but NOT currently read into data.load()'s row tuples at all (only
 # date/user_id/video_id/author_id/tab/duration_ms/long_view are, see data.py's load()) — stated
@@ -146,8 +143,8 @@ def build_state(splits, *, current_best, iteration_number, expected_total_iterat
         'baseline_gauc': f"{baseline['GAUC']:.4f}",
         'baseline_ndcg5': f"{baseline['nDCG@5']:.4f}",
         'baseline_primary': f"{baseline['primary']:.4f}",
-        'feature_list': f"in use: {', '.join(FIELDS_IN_USE)}. Available, not wired in: "
-                         f"{FIELDS_AVAILABLE_NOT_WIRED}",
+        'feature_list': f"always in use: {', '.join(FIELDS_IN_USE)}. Toggleable via "
+                         f"toggle_field: {FIELDS_TOGGLEABLE}",
         'feedback_signals': FEEDBACK_SIGNALS,
         'iteration_number': iteration_number,
         'elapsed_time': elapsed_time if elapsed_time is not None else f"iteration {iteration_number}",

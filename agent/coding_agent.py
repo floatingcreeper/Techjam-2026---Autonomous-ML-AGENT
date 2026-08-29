@@ -14,6 +14,7 @@ import os
 from agent import llm_client
 from agent.action_space import HYPERPARAM_BOUNDS, validate_action
 from agent.prompt_utils import fill_template, load_template, parse_json
+from data import EXTRA_FIELDS
 
 PROMPT_PATH = os.path.join(os.path.dirname(__file__), 'prompts', 'code.md')
 
@@ -63,6 +64,8 @@ def propose_action(hypothesis, current_config, *, llm_call=llm_client.call, max_
         'reasoning': hypothesis['reasoning'],
         'implementation_sketch': hypothesis.get('implementation_sketch', ''),
         'current_config': json.dumps({k: current_config.get(k) for k in HYPERPARAM_BOUNDS}),
+        'extra_fields_list': ', '.join(EXTRA_FIELDS),
+        'active_extra_fields': json.dumps(current_config.get('extra_fields', [])),
     }, source_name='code.md')
     messages = [{'role': 'user', 'content': 'Produce the action for this hypothesis now.'}]
     total_usage = {'input_tokens': 0, 'output_tokens': 0}

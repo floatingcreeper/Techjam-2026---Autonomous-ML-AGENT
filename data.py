@@ -131,3 +131,87 @@ def encode(splits):
             users.append(x[1])
         enc[name] = (X, y, users)
     return enc, int(sum(field_dims))
+
+
+# =============================================================================
+# Additive extension for the agent's `toggle_field` action (agent/action_space.py). Everything
+# above this line — FIELDS, load(), encode() — is UNCHANGED and still exactly what baseline.py,
+# submit.py, and ablation_features.py use. This section adds a second, parallel encoder that
+# supports optionally including CWM's extra side-info fields, without touching any of the above.
+#
+# Resolves AGENT_STRATEGY.md decision #9: ablation_features.py already prototypes joining these
+# same fields in, but duplicates data.py's raw()/vocab logic inline (it's a deliberately
+# standalone script, documented as such in CLAUDE.md, and stays untouched here too) — this is the
+# ONE shared copy of that join logic for any NEW code going forward, so a third copy never exists.
+# =============================================================================
+
+EXTRA_VIDEO_FIELDS = ['music_id', 'video_type', 'upload_type']       # video_features_basic_pure.csv
+EXTRA_USER_FIELDS = ['follow_user_num_range', 'register_days_range',  # user_features_pure.csv
+                      'fans_user_num_range', 'friend_user_num_range', 'user_active_degree']
+EXTRA_FIELDS = EXTRA_VIDEO_FIELDS + EXTRA_USER_FIELDS
+
+
+def _load_extra_lookups(data_dir):
+    """video_id -> [EXTRA_VIDEO_FIELDS values], user_id -> [EXTRA_USER_FIELDS values]. Neither
+    source CSV carries any interaction/label data — they're static per-video/per-user metadata —
+    so loading them carries no hidden-test-isolation risk regardless of which split is being
+    encoded; only the interaction-log rows (already loaded, passed in via `splits`) are subject to
+    that guard."""
+    v_ext = {}
+    with open(os.path.join(data_dir, 'video_features_basic_pure.csv')) as fh:
+        for r in csv.DictReader(fh):
+            v_ext[r['video_id']] = [r[k] for k in EXTRA_VIDEO_FIELDS]
+    u_ext = {}
+    with open(os.path.join(data_dir, 'user_features_pure.csv')) as fh:
+        for r in csv.DictReader(fh):
+            u_ext[r['user_id']] = [r[k] for k in EXTRA_USER_FIELDS]
+    return v_ext, u_ext
+
+
+def encode_with_extra_fields(splits, data_dir, extra_fields=()):
+    """Same contract as encode() (train-only vocab/bucket-edge fitting, UNK for unseen values,
+    shared offset embedding space) but the field list is FIELDS + `extra_fields` (a subset of
+    EXTRA_FIELDS, in EXTRA_FIELDS order). extra_fields=() is IDENTICAL to plain encode() — this
+    is a strict superset of encode()'s behavior, not a divergent reimplementation.
+
+    Returns (enc, dim, field_list) — field_list is FIELDS + the extra fields actually used, for
+    the caller to know what it trained on."""
+    bad = [f for f in extra_fields if f not in EXTRA_FIELDS]
+    if bad:
+        raise ValueError(f"{bad} not in EXTRA_FIELDS {EXTRA_FIELDS}")
+    field_list = FIELDS + list(extra_fields)
+
+    v_ext, u_ext = _load_extra_lookups(data_dir) if extra_fields else ({}, {})
+    unk_v, unk_u = ['UNK'] * len(EXTRA_VIDEO_FIELDS), ['UNK'] * len(EXTRA_USER_FIELDS)
+
+    tr = splits['train']
+    edges = _bucket_edges([x[5] for x in tr])  # train-only, same as encode()
+
+    def raw(x):
+        base = [x[1], x[2], x[3], x[4], str(int(np.searchsorted(edges, x[5])))]
+        if not extra_fields:
+            return base
+        by_name = dict(zip(EXTRA_FIELDS, v_ext.get(x[2], unk_v) + u_ext.get(x[1], unk_u)))
+        return base + [by_name[f] for f in extra_fields]
+
+    vocabs = [dict() for _ in field_list]
+    for x in tr:
+        for i, v in enumerate(raw(x)):
+            if v not in vocabs[i]:
+                vocabs[i][v] = len(vocabs[i])
+    unk = [len(v) for v in vocabs]
+    field_dims = [len(v) + 1 for v in vocabs]
+    offsets = np.cumsum([0] + field_dims[:-1]).astype(np.int32)
+
+    enc = {}
+    for name, rws in splits.items():
+        X = np.empty((len(rws), len(field_list)), dtype=np.int32)
+        y = np.empty(len(rws), dtype=np.float32)
+        users = []
+        for n, x in enumerate(rws):
+            for i, v in enumerate(raw(x)):
+                X[n, i] = vocabs[i].get(v, unk[i]) + offsets[i]
+            y[n] = x[6]
+            users.append(x[1])
+        enc[name] = (X, y, users)
+    return enc, int(sum(field_dims)), field_list

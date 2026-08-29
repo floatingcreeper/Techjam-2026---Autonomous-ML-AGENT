@@ -9,14 +9,21 @@ There is no visual dashboard yet (AGENT_STRATEGY.md Phase 6, not built) — `sta
 """
 import argparse
 
-from agent import cost_report, manual_intervention, resume
+from agent import cost_report, decision, manual_intervention, resume
 from agent.orchestrator import run_loop
+from agent.solution_tree import SolutionTree
 
 
 def cmd_run(args):
+    if args.git_snapshot:
+        # Opt-in only: an autonomous loop writing to the user's real git history is a side effect
+        # they should choose deliberately. Off unless this flag is passed. See agent/decision.py.
+        decision.GIT_SNAPSHOT = True
+        print("[git] --git-snapshot: accepted solutions will be committed to git")
     current_best, history = run_loop(
         args.data_dir, expected_total_iterations=args.iterations,
-        max_iterations=args.iterations, seed=args.seed, verbose=not args.quiet)
+        max_iterations=args.iterations, seed=args.seed, verbose=not args.quiet,
+        max_hours=args.max_hours, ignore_convergence=args.ignore_convergence)
     print()
     if current_best:
         print(f"Final current-best: primary={current_best['primary']:.4f} "
@@ -43,6 +50,9 @@ def cmd_status(args):
         print("Current-best: none yet")
     print(f"Manual interventions recorded: {manual_intervention.count()}")
     print()
+    print("Solution tree:")
+    print(SolutionTree.load().render())
+    print()
     print(cost_report.format_report())
 
 
@@ -61,7 +71,17 @@ if __name__ == '__main__':
                          help='both the convergence-fraction denominator and the hard cap on '
                               'how many iterations this call will run')
     run_ap.add_argument('--seed', type=int, default=0)
+    run_ap.add_argument('--max-hours', type=float, default=None,
+                         help='wall-clock budget in hours, checked between iterations (never '
+                              'interrupts one mid-run). Pair with a large --iterations for '
+                              '"run for N hours" semantics; re-run the same command to continue.')
+    run_ap.add_argument('--ignore-convergence', action='store_true',
+                         help='keep iterating even once the convergence rule says the search has '
+                              'stalled. Use with --max-hours to fill a time budget.')
     run_ap.add_argument('--quiet', action='store_true')
+    run_ap.add_argument('--git-snapshot', action='store_true',
+                         help='git-commit each accepted solution (off by default - the loop does '
+                              'not touch your git history unless you ask for it)')
     run_ap.set_defaults(func=cmd_run)
 
     status_ap = sub.add_parser('status', help='show current-best + resource consumption')

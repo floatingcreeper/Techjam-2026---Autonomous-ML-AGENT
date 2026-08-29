@@ -20,8 +20,14 @@ through agent/data_guard.load_train_valid(), which physically removes the 'test'
 agent-facing code sees it. A variant that only ever evaluates "whichever non-train splits are
 present" (via non_train_splits() below) therefore can't leak a test score even by accident — it
 never has to know the isolation rule exists, the guard does the work upstream. Variants MUST NOT
-call data.load() or accept a data_dir themselves; always take already-loaded `splits` from the
-caller.
+call data.load() themselves, or accept a config that lets them load interaction-log rows on their
+own — `splits` (the labeled interaction data) always comes pre-loaded from the caller.
+
+Exception: a variant MAY load static, label-free side-info CSVs itself (e.g. models/fm_v1.py loads
+video_features_basic_pure.csv/user_features_pure.csv for extra CWM fields, via a 'data_dir' config
+key) — those carry no interaction/label data at all, so there is no hidden-test-isolation risk
+regardless of which split is being encoded. The rule is specifically about interaction-log rows
+(the ones with `long_view` labels and date ranges), not every file in the data directory.
 """
 
 

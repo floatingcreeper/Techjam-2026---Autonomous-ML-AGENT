@@ -20,6 +20,7 @@ import os
 
 from agent import cost_report, manual_intervention
 from agent.config import CONVERGENCE_EPSILON, CONVERGENCE_N
+from agent.solution_tree import BUGGY, WORKING, SolutionTree
 
 EXPERIMENT_LOG_PATH = os.path.join('runs', 'experiment_log.jsonl')
 STATE_PATH = os.path.join('runs', 'state.json')
@@ -121,6 +122,41 @@ def _svg_chart(records, baseline, width=760, height=200):
     return ''.join(parts)
 
 
+def _tree_html(tree):
+    """Indented HTML view of the AIDE solution tree (agent/solution_tree.py). Shows which nodes
+    are working vs buggy and how each was produced (draft/debug/improve/config), so the search
+    path is legible rather than something to reconstruct from the iteration table."""
+    if not tree.nodes:
+        return '<p class="muted">No solutions explored yet.</p>'
+    children = {}
+    for n in tree.nodes.values():
+        children.setdefault(n.parent_id, []).append(n)
+    best = tree.best()
+    rows = []
+
+    def walk(parent_id, depth):
+        for n in sorted(children.get(parent_id, []), key=lambda x: x.id):
+            primary = f"{n.primary:.4f}" if n.primary is not None else '&mdash;'
+            cls = 'accepted' if n.status == WORKING else 'rejected'
+            label = 'working' if n.status == WORKING else 'buggy'
+            star = ' <span class="badge accepted">best</span>' if best and n.id == best.id else ''
+            detail = _esc(n.error or '')[:120] if n.status == BUGGY else ''
+            rows.append(
+                f'<tr><td style="padding-left:{12 + depth * 22}px">'
+                f'<span class="badge {cls}">{label}</span> #{n.id}{star}</td>'
+                f'<td>{_esc(n.operation)}</td>'
+                f'<td class="statement">{_esc(n.summary)}'
+                + (f'<div class="err">{detail}</div>' if detail else '')
+                + f'</td><td class="num">{primary}</td>'
+                f'<td class="num">{_esc(n.iteration) if n.iteration is not None else "&mdash;"}</td></tr>')
+            walk(n.id, depth + 1)
+
+    walk(None, 0)
+    return ('<table><thead><tr><th>Node</th><th>Op</th><th>Hypothesis</th>'
+            '<th class="num">Primary</th><th class="num">Iter</th></tr></thead>'
+            f'<tbody>{"".join(rows)}</tbody></table>')
+
+
 def _iteration_rows(records):
     rows = []
     for r in records:
@@ -152,6 +188,7 @@ def _iteration_rows(records):
 
 def render(*, log_path=EXPERIMENT_LOG_PATH, state_path=STATE_PATH):
     records = _load_jsonl(log_path)
+    tree = SolutionTree.load()
     state = _load_json(state_path, {'last_completed_iteration': 0, 'current_best': None}) or {}
     baseline = _baseline_reference()
     cost = cost_report.summarize()
@@ -264,6 +301,9 @@ def render(*, log_path=EXPERIMENT_LOG_PATH, state_path=STATE_PATH):
 </div>
 
 <div class="panel">{_svg_chart(records, baseline)}</div>
+
+<h2>Solution tree</h2>
+<div class="panel">{_tree_html(tree)}</div>
 
 <h2>Iterations</h2>
 <div class="panel">
