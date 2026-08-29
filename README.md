@@ -25,6 +25,42 @@ python3 baseline.py --model fm
 `--model` 可选 `fm`（官方 baseline）/ `pop`（trivial baseline）/ `random`（下界，用于自检评测代码）。
 FM 全程约 40 秒（CPU，单核）。
 
+## LLM autonomous research agent
+
+`research_agent.py` runs a guarded autonomous loop: it proposes an experiment,
+runs it on train/public validation, records the result, and uses the history to
+choose the next experiment. It never loads the hidden test split during
+research. The local fallback works without an API key:
+
+```bash
+python3 research_agent.py --iterations 6
+```
+
+To let an LLM choose the next experiment, set an OpenAI API key and optionally
+choose the model:
+
+```bash
+export OPENAI_API_KEY="..."
+export OPENAI_MODEL="gpt-5.5"
+python3 research_agent.py --iterations 8 --log research_runs.jsonl
+```
+
+The LLM output is restricted to validated experiments in the local allowlist;
+it cannot execute arbitrary shell commands. The runner logs every proposal,
+validation score, failure, and elapsed time. The current allowlist includes the
+official pointwise FM reproduction and the ranking-aligned BPR-FM candidate.
+
+For a controller that can inspect git state, propose targeted code rewrites,
+run the starter-kit evaluator, and log every iteration, use:
+
+```bash
+python autonomous_agent.py --iterations 20 --log autonomous_agent.jsonl
+```
+
+With an LLM enabled, set `OPENAI_API_KEY` first. The controller uses
+`MASTER_PROMPT.md`, protects `data.py`, `evaluate.py`, and `submit.py`, and
+allows only named validation experiments.
+
 ## 任务定义（口径已写死，不要改）
 
 | | |
@@ -171,3 +207,24 @@ print(evaluate(user_ids, labels, scores))   # scores 可以来自任何模型
 | `baseline_scores.json` | 官方发布的分数 + 种子方差 + 收敛参数。 |
 | `submit.py` | 生成 / 校验提交文件。 |
 | `ablation_features.py` | 特征消融实验，可复现「加特征没有收益」那组数字。 |
+
+## Ranking experiments
+
+The default research path stays on train plus public validation only:
+
+```bash
+.venv\\Scripts\\python.exe -m pip install -r requirements.txt
+.venv\\Scripts\\python.exe bpr_fm.py --valid_only
+.venv\\Scripts\\python.exe sequence_ranker.py --history_length 20 --embedding_dim 8 --epochs 5
+.venv\\Scripts\\python.exe blend_experiment.py --seed 0
+.venv\\Scripts\\python.exe research_agent.py --iterations 5 --log research_runs.jsonl
+```
+
+`bpr_fm.py` is the pairwise FM milestone. `sequence_ranker.py` is an FM-DIN
+multi-task ranker: it preserves FM-style categorical interactions, adds
+candidate-aware attention over causal user histories, and uses click/like/
+follow/comment/profile entry only as auxiliary targets. `research_agent.py`
+runs the named public-validation experiments and logs each hypothesis, config,
+metric, error/recovery event, elapsed time, and diff summary.
+`blend_experiment.py` rank-normalizes model outputs within each user before
+testing BPR-FM/FM-DIN-MTL blend weights on public validation.

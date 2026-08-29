@@ -9,8 +9,10 @@ SPLITS = {'train': (20220408, 20220421),
 # 5 个特征域。想加特征就往这里加 —— 这是学生最该动的地方之一。
 FIELDS = ['user_id', 'video_id', 'author_id', 'tab', 'dur_bucket']
 
-def load(data_dir):
+def load(data_dir, requested_splits=None):
     """读日志 + 视频侧特征，返回按划分切好的 dict。"""
+    requested = set(requested_splits or SPLITS)
+    requested_ranges = [SPLITS[name] for name in requested]
     vid2author = {}
     with open(os.path.join(data_dir, 'video_features_basic_pure.csv')) as fh:
         for r in csv.DictReader(fh):
@@ -20,14 +22,26 @@ def load(data_dir):
     for f in ('log_standard_4_08_to_4_21_pure.csv', 'log_standard_4_22_to_5_08_pure.csv'):
         with open(os.path.join(data_dir, f)) as fh:
             for r in csv.DictReader(fh):
-                rows.append((int(r['date']), r['user_id'], r['video_id'],
+                date = int(r['date'])
+                # The public-validation path must never retain test examples.
+                # The second source file contains both dates, so filter before
+                # materialising labels or any other row features.
+                if not any(lo <= date <= hi for lo, hi in requested_ranges):
+                    continue
+                rows.append((date, r['user_id'], r['video_id'],
                              vid2author.get(r['video_id'], 'UNK'), r['tab'],
                              float(r['duration_ms']), 1 if r[LABEL] != '0' else 0))
 
     out = {}
     for name, (lo, hi) in SPLITS.items():
+        if name not in requested:
+            continue
         out[name] = [x for x in rows if lo <= x[0] <= hi]
     return out
+
+def load_public(data_dir):
+    """Load only train and public validation splits for research iterations."""
+    return load(data_dir, requested_splits=('train', 'valid'))
 
 def _bucket_edges(durations, n=10):
     return np.quantile(np.asarray(durations), np.linspace(0, 1, n + 1)[1:-1])

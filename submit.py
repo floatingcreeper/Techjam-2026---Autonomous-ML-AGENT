@@ -19,6 +19,9 @@
     python3 submit.py --score  submission.csv     # 校验并打分（仅本地 valid 可用）
 """
 import argparse, csv, sys
+if hasattr(sys.stdout, 'reconfigure'):
+    try: sys.stdout.reconfigure(encoding='utf-8')
+    except Exception: pass
 from data import load, encode
 from evaluate import evaluate
 
@@ -71,6 +74,9 @@ if __name__ == '__main__':
     g.add_argument('--check', action='store_true', help='只校验格式与对齐')
     g.add_argument('--score', action='store_true', help='校验并打分')
     a = ap.parse_args()
+
+    if a.score and a.split != 'valid':
+        ap.error('--score is restricted to the public validation split; hidden test labels must not be scored locally')
 
     splits = load(a.data_dir)
     rows = splits[a.split]

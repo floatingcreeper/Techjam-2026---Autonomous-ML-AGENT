@@ -23,6 +23,8 @@ def run_pop(splits, prior=20.0):
     score = lambda v: (pos[v] + prior * gmean) / (imp[v] + prior) if imp[v] else gmean
     out = {}
     for name in ('valid', 'test'):
+        if name not in splits:
+            continue
         rws = splits[name]
         out[name] = evaluate([x[1] for x in rws], [x[6] for x in rws],
                              [score(x[2]) for x in rws])
@@ -32,6 +34,8 @@ def run_random(splits, seed=0):
     rng = np.random.default_rng(seed)
     out = {}
     for name in ('valid', 'test'):
+        if name not in splits:
+            continue
         rws = splits[name]
         out[name] = evaluate([x[1] for x in rws], [x[6] for x in rws],
                              rng.random(len(rws)))
@@ -77,7 +81,10 @@ class FM:
 
 def run_fm(splits, k=16, lr=0.001, epochs=40, bs=8192, patience=4, seed=0, verbose=True):
     enc, dim = encode(splits)
-    Xtr, ytr, _ = enc['train']; Xva, yva, uva = enc['valid']; Xte, yte, ute = enc['test']
+    Xtr, ytr, _ = enc['train']; Xva, yva, uva = enc['valid']
+    has_test = 'test' in enc
+    if has_test:
+        Xte, yte, ute = enc['test']
     m = FM(dim, k=k, lr=lr, seed=seed)
     rng = np.random.default_rng(seed)
     best, best_state, bad = -1, None, 0
@@ -97,8 +104,10 @@ def run_fm(splits, k=16, lr=0.001, epochs=40, bs=8192, patience=4, seed=0, verbo
                 if verbose: print(f"  early stop at epoch {ep}")
                 break
     m.V, m.W, m.b = best_state
-    return {'valid': evaluate(uva, yva, m.predict(Xva)),
-            'test':  evaluate(ute, yte, m.predict(Xte))}
+    result = {'valid': evaluate(uva, yva, m.predict(Xva))}
+    if has_test:
+        result['test'] = evaluate(ute, yte, m.predict(Xte))
+    return result
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
@@ -109,13 +118,17 @@ if __name__ == '__main__':
     ap.add_argument('--lr', type=float, default=0.001)
     ap.add_argument('--epochs', type=int, default=40)
     ap.add_argument('--seed', type=int, default=0)
+    ap.add_argument('--valid_only', action='store_true',
+                    help='只加载 train/valid，避免研究阶段接触 hidden test')
     a = ap.parse_args()
     print(f"loading {a.data_dir} ...")
-    splits = load(a.data_dir)
+    splits = load(a.data_dir, requested_splits=('train', 'valid') if a.valid_only else None)
     print({k_: len(v) for k_, v in splits.items()}, f"fields={FIELDS}")
     res = {'pop': run_pop, 'random': lambda s: run_random(s, a.seed),
            'fm': lambda s: run_fm(s, k=a.k, lr=a.lr, epochs=a.epochs, seed=a.seed)}[a.model](splits)
     print(f"\n=== {a.model} (seed={a.seed}) ===")
     for sp in ('valid', 'test'):
+        if sp not in res:
+            continue
         r = res[sp]
         print(f"  {sp:5s}  GAUC {r['GAUC']:.4f} | nDCG@5 {r['nDCG@5']:.4f} | primary {r['primary']:.4f}")
