@@ -59,6 +59,22 @@ iteration even if it tries to -- the rows simply aren't there (see
 `pipeline/README.md` for the exact contract). The only place the hidden
 test set is ever scored is the one-time finalize step described below.
 
+There is a **second, independent check** on top of that: `agent/sandbox.py`
+raises `HiddenTestViolation` and stops the run outright if any iteration's
+output carries a `'test'` key at all. It is deliberately not a recoverable
+iteration error -- no alternative hypothesis could fix it, so retrying
+would just burn repair attempts while the violation continued.
+
+That redundancy was earned. The stripping line in `_run_iteration.py` was
+silently lost once when a `git checkout` restored a commit predating the
+fix, and nothing detected it -- the run kept going, the logs kept recording
+test metrics, and this README kept claiming enforcement that was no longer
+happening. The structural fix lives in a file that tooling outside this
+repo can revert; the behavioural check catches the consequence on the very
+next run regardless of how the revert happened. If you ever see
+`RUN STOPPED -- HIDDEN TEST SET COMPLIANCE VIOLATION`, restore the
+stripping line in `pipeline/_run_iteration.py` before doing anything else.
+
 ## Before you run it: point it at your data
 
 `pipeline/` does not include the dataset. `--data_dir` defaults to
@@ -114,6 +130,15 @@ is the explicit "confirm it reaches the official baseline's reported
 validation score" step the brief asks for as step 1, as its own auditable
 artifact rather than an assumption that iteration 0 happens to start from
 unmodified code.
+
+That measured score also becomes the floor iteration 0 has to clear: a
+first hypothesis that scores below it is rejected (`"adopted": false`)
+exactly like any later iteration would be, and `best/` falls back to the
+unmodified baseline itself rather than sitting empty, so a run where
+nothing ever beats the baseline still leaves a valid, submission-ready
+state behind. Earlier this was not the case -- iteration 0 had no
+reference to be judged against and was adopted unconditionally, so a
+first hypothesis that made things worse could still become "current."
 
 It will then stop on its own per the organizer's convergence rule (validation
 primary not improving by more than 0.002 over 3 iterations), the 50-
@@ -230,12 +255,119 @@ directions instead: loss function (pointwise -> pairwise/listwise),
 sequence modeling, multi-task learning, censored watch-time regression,
 before architecture changes.
 
+It also learns from this run's own history, not just the organizers' --
+past iterations are shown to the LLM split into PROMISING (adopted;
+"refine or extend this") and DEAD ENDS (ran but scored below what it was
+judged against; "don't repeat or near-vary this, consider the opposite
+direction instead"), rather than a flat chronological list. The
+adopted/rejected verdict and the actual score delta were already recorded
+per iteration -- this just makes the pattern explicit in the prompt instead
+of leaving the LLM to infer it from raw numbers.
+
+## Running against a local Ollama model
+
+`agent/llm_client.py` also ships `OllamaClient`, which talks to a local
+`ollama serve` instance instead of the Anthropic API -- no API key, no
+per-token cost, `--max_cost_usd` becomes a no-op:
+
+```powershell
+ollama pull qwen2.5-coder:7b
+python run_agent.py --local_model qwen2.5-coder:7b --candidates_per_iteration 1
+```
+
+`--ollama_host` (default `http://localhost:11434`) points at a remote
+Ollama server if you're not running it on the same machine; `--ollama_num_ctx`
+(default 32768) sets the context window requested from the model.
+
+**Don't lower `--ollama_num_ctx` to fit VRAM.** Ollama silently *truncates*
+a prompt longer than `num_ctx` rather than erroring, and the part most
+likely to be cut is the tail -- which is exactly where this prompt keeps
+its response-format spec and constraints, so the symptom is unexplainable
+garbage output, not an error message. `OllamaClient` therefore estimates
+the prompt size before sending and refuses outright if it plus a 10K-token
+response reserve wouldn't fit, and separately warns after the fact if the
+real token counts Ollama reports filled the whole window.
+
+Measured against the actual pipeline files, the prompt is **~14.5K tokens**
+(50,874 characters), so ~24.5K is needed once the response reserve is
+counted. That fits `num_ctx=32768` and does *not* fit 16384 -- which is the
+real bind on an 8GB card: 32768 tokens of KV cache is roughly 1.8 GB on top
+of ~4.7 GB of weights for a 7B model, and Windows is already holding some
+VRAM for the desktop. Expect Ollama to offload layers to CPU, which shows
+up as slow generation *and* low GPU utilization. Shrinking the prompt (or
+using a card with more VRAM) is the only real fix; lowering `num_ctx` just
+trades a visible problem for a silent one. Requests are sent with
+Ollama's `format: "json"` option, which constrains decoding to valid JSON
+at the token-sampling level rather than relying on the prompt instruction
+alone -- this matters more for a small model than a large one.
+
+**What to actually expect, on an 8GB-class GPU (e.g. RTX 5060):** this
+prompt runs roughly 15-20K input tokens (data profile, dead ends/headroom
+directions, bounded history, both full pipeline files) and asks for a
+complete file rewrite back -- easily 10K+ output tokens for `baseline.py`.
+Published RTX 5060 Ollama benchmarks for 7-8B models cluster around
+30-70 tok/s ([databasemart](https://www.databasemart.com/blog/ollama-gpu-benchmark-rtx5060),
+[runaihome](https://runaihome.com/blog/best-llm-every-rtx-50-series-gpu-2026/)),
+but every one of those numbers is measured at short-to-moderate context
+that fits entirely in 8GB VRAM (roughly a 4K-8K token window at Q4_K_M);
+both sources explicitly note that pushing past that on an 8GB card forces
+KV-cache spillover to CPU, and don't publish a number for what throughput
+becomes at that point. At this prompt's actual size, expect generation
+closer to the low tens of tokens/sec than the high end of that range --
+call it tens of minutes per candidate, not seconds. Over a run that
+converges in ~6 iterations (like the real API run in this README's
+history), that's plausibly 3+ hours wall-clock for one `--candidates_per_iteration 1`
+run, versus the ~26 minutes the same iteration count took against the
+Anthropic API.
+
+Speed aside, a 7-8B model is also simply weaker than Claude Sonnet at two
+things this task leans on hard: reliably emitting fence-free, schema-exact
+JSON (mitigated somewhat by `format: "json"` above, but not eliminated),
+and coherently rewriting an entire 500-800 line Python file without
+corrupting logic unrelated to its stated hypothesis -- the "isolated
+change" constraint in the prompt is much easier for a large model to
+honor at this file size than a small one. Expect a higher failed/repaired
+iteration rate, and likely a smaller, noisier improvement over baseline
+than the Claude-driven runs already in this project's history -- possibly
+none at all, if repair attempts eat most of the small iteration budget the
+convergence rule allows (epsilon=0.002, N=3). Treat a local run as a
+zero-marginal-cost way to explore or to keep iterating after a cost
+budget is spent, not as a way to get a *better* result than the hosted
+model produced.
+
+Recommendations if you do run this: pick a coding-tuned model over a
+general chat one at the same size (`qwen2.5-coder:7b` over a generic
+`llama3.1:8b`) -- this task is 100% "rewrite a Python file correctly,"
+which is exactly what a coding-tuned model is trained for. Use
+`--candidates_per_iteration 1` (the default of 2 doubles wall-clock for a
+cost tradeoff that no longer applies locally). And budget real time --
+this is not a "kick it off and check back in twenty minutes" run the way
+the API version is.
+
+**What actually happened on the first real local run (`qwen2.5-coder:7b`,
+default settings):** every iteration failed, and every failure was the
+same shape -- `AttributeError: module 'baseline' has no attribute
+'run_fm'`, `NameError: name '_train_fm_hybrid' is not defined`,
+`NameError: name 'encode' is not defined`. The model wasn't writing wrong
+logic; it was writing an *incomplete* file -- silently dropping helper
+functions that live elsewhere in the ~800-line original while claiming
+its output was "the COMPLETE new content." Repair attempts (the traceback
+fed back, up to `MAX_REPAIR_ATTEMPTS` times) didn't reliably fix this,
+since it isn't a small, nameable bug each time -- it's a coherence limit
+at this file size. `--ollama_temperature` (default `0.2`, down from
+Ollama's chat-tuned `0.8`) biases decoding toward reproducing the
+existing file rather than paraphrasing it, which should help somewhat,
+but don't expect it to close the gap entirely -- if a coding-tuned 7B
+model at low temperature still can't hold the whole file together, that's
+a real capability ceiling for this specific "rewrite an entire large file
+losslessly except one function" task shape, not a settings problem.
+
 ## Swapping the LLM provider
 
 `controller.py` only depends on an object with `.propose(prompt, iteration)
--> Proposal` (see `agent/llm_client.py`). `AnthropicClient` is the only
-real implementation shipped here since that's what's configured for this
-session, but nothing about the controller is Anthropic-specific -- add a
-sibling class calling whichever API/model you choose (Trae, OpenAI, a
-self-hosted model, ...) and pass an instance of it into `controller.run()`
-in `run_agent.py` instead.
+-> Proposal` and `.estimate_cost(input_tokens, output_tokens) -> float`
+(see `agent/llm_client.py`). `AnthropicClient` and `OllamaClient` are the
+two real implementations shipped here, but nothing about the controller is
+tied to either -- add a sibling class calling whichever API/model you
+choose (a different local runtime, another hosted provider, ...) and pass
+an instance of it into `controller.run()` in `run_agent.py` instead.

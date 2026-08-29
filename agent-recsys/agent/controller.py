@@ -72,7 +72,7 @@ from pathlib import Path
 from agent import context as ctx
 from agent import sandbox
 from agent.convergence import ConvergenceMonitor
-from agent.llm_client import LLMFatalError, estimate_cost
+from agent.llm_client import LLMFatalError
 
 MAX_REPAIR_ATTEMPTS = 3
 BEST_META_FILENAME = "_best_meta.json"
@@ -99,8 +99,18 @@ def _write_best_meta(best_dir: Path, valid_primary: float, iteration: int, hypot
     # in afterward via this same function, loading the existing meta first
     # so it doesn't clobber valid_primary/iteration/hypothesis.
     meta = {
-        "valid_primary": valid_primary,
-        "test_primary": test_primary,
+        # float(...) here is deliberate, not decorative: every caller inside
+        # this module already passes a native float (run_result.metrics
+        # round-tripped through JSON via sandbox.run_scratch()), but
+        # finalize.py's one-time patch of test_primary calls
+        # baseline.train_and_predict() directly, in-process -- no JSON
+        # round-trip in between -- so a numpy.float32/float64 score reaches
+        # here unconverted and json.dump() below would raise
+        # "Object of type float32 is not JSON serializable". float() is a
+        # no-op on an already-native float, so this is safe for every
+        # caller, not just finalize.py's.
+        "valid_primary": float(valid_primary),
+        "test_primary": float(test_primary) if test_primary is not None else None,
         "iteration": iteration,
         "hypothesis": hypothesis,
         "saved_at": datetime.now(timezone.utc).isoformat(),
@@ -141,7 +151,11 @@ def _check_baseline_reproduction(pipeline_dir: Path, baseline_ref: dict, data_di
     Best-effort: a failure here is reported but never blocks iteration 0
     from starting -- if the seeded pipeline genuinely can't run, iteration
     0's own attempt will surface the identical error through the normal
-    repair-attempt path anyway."""
+    repair-attempt path anyway.
+
+    Returns the measured valid primary (used by run() to seed
+    best_valid_primary -- see the call site) or None if the check failed to
+    run at all."""
     official = baseline_ref.get("scores", {}).get("fm_official", {}).get("valid", {}).get("primary")
     result = {"checked_at": datetime.now(timezone.utc).isoformat(), "official_valid_primary": official}
     scratch = sandbox.make_scratch_copy(pipeline_dir)
@@ -170,6 +184,8 @@ def _check_baseline_reproduction(pipeline_dir: Path, baseline_ref: dict, data_di
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2)
+
+    return run_result.metrics["valid"]["primary"] if run_result.ok else None
 
 
 def _propose_and_run_one_candidate(
@@ -242,6 +258,14 @@ def _propose_and_run_one_candidate(
         try:
             sandbox.apply_change(scratch, proposal.target_file, proposal.new_content)
             run_result = sandbox.run_scratch(scratch, data_dir)
+        except sandbox.HiddenTestViolation:
+            # Deliberately NOT folded into the recoverable path below: the
+            # hidden test set was scored, which no alternative proposal
+            # could fix and which must not cost the agent repair attempts
+            # while it keeps happening. Stop the whole run instead -- see
+            # HiddenTestViolation's docstring.
+            sandbox.cleanup(scratch)
+            raise
         except Exception as e:  # noqa: BLE001 - any sandbox-side failure is a recoverable iteration error
             run_result = sandbox.RunResult(ok=False, error=f"{type(e).__name__}: {e}")
 
@@ -319,7 +343,31 @@ def run(
         # Only for a genuinely fresh run -- a resumed run already has this
         # evidence from whichever earlier run first produced the best/
         # snapshot it just restored above.
-        _check_baseline_reproduction(pipeline_dir, baseline_ref, data_dir, log_path)
+        baseline_measured = _check_baseline_reproduction(pipeline_dir, baseline_ref, data_dir, log_path)
+        if baseline_measured is not None:
+            # Without this, best_valid_primary stays at -1.0 through
+            # iteration 0, so reference_primary is None and iteration 0 is
+            # adopted UNCONDITIONALLY (see the adoption rule below) -- even
+            # if its hypothesis makes things worse than doing nothing at
+            # all. Seeding from the just-measured baseline means iteration
+            # 0 is held to the same "must match or beat" bar as every
+            # iteration after it.
+            best_valid_primary = baseline_measured
+            # Also snapshot the unmodified baseline itself into best_dir as
+            # a floor: if no iteration this run ever beats it, best/ still
+            # holds a valid, submission-ready state (finalize.py and any
+            # future resume both depend on best/ being non-empty) instead
+            # of staying empty because nothing "new" ever got promoted.
+            sandbox.snapshot_to(pipeline_dir, best_dir)
+            _write_best_meta(
+                best_dir, best_valid_primary, -1,
+                "(unmodified seeded baseline -- no LLM change yet)",
+            )
+            print(
+                f"iteration 0 will be held to the reproduced baseline: "
+                f"valid primary {best_valid_primary:.4f} must be matched or "
+                f"beaten to be adopted"
+            )
 
     if max_cost_usd:
         print(f"cost kill switch armed: stopping if estimated spend reaches ${max_cost_usd:.2f}")
@@ -369,7 +417,7 @@ def run(
                 fatal = outcome["fatal"]
                 break  # don't spend further candidates on an infra-level failure
 
-        total_cost_usd += estimate_cost(iter_input_tokens, iter_output_tokens)
+        total_cost_usd += llm_client.estimate_cost(iter_input_tokens, iter_output_tokens)
 
         # Pick whichever candidate actually succeeded and scored highest.
         successful = [o for o in candidate_outcomes if o["run_result"] is not None and o["run_result"].ok]

@@ -1,7 +1,3 @@
 {
   "valid_primary": 0.5988216400146484,
-  "test_primary": 0.5931015014648438,
-  "iteration": 2,
-  "hypothesis": "Add a new leave-one-out feature 'user_author_click_affinity': the smoothed (user_id, author_id) click rate (using the denser is_click auxiliary signal, not long_view), computed with the same no-leakage leave-one-out + additive-smoothing discipline as the existing long_view-based affinity feature. Since is_click fires far more often than long_view, this gives a much less noisy per-user-author estimate (especially for the ~27% of users with sparse/zero long_view positives in their own history) and can complement the existing sparse long_view affinity to help reorder within-user candidates.",
-  "saved_at": "2026-08-29T08:03:03.460430+00:00"
-}
+  "test_primary": 

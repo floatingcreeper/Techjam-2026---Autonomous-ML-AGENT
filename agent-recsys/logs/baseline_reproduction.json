@@ -1,0 +1,6 @@
+{
+  "checked_at": "2026-08-29T16:59:13.442891+00:00",
+  "official_valid_primary": 0.6016,
+  "ok": false,
+  "error": "Traceback (most recent call last):\n  File \"C:\\Users\\JINGXU~1\\AppData\\Local\\Temp\\kuairand_iter_vsifgk0m\\_run_iteration.py\", line 81, in <module>\n    main()\n    ~~~~^^\n  File \"C:\\Users\\JINGXU~1\\AppData\\Local\\Temp\\kuairand_iter_vsifgk0m\\_run_iteration.py\", line 75, in main\n    result = B.run_fm(iter_splits, verbose=False)\n  File \"C:\\Users\\JINGXU~1\\AppData\\Local\\Temp\\kuairand_iter_vsifgk0m\\baseline.py\", line 501, in run_fm\n    Xva, yva, uva = enc['valid']; Xte, yte, ute = enc['test']\n                                                  ~~~^^^^^^^^\nKeyError: 'test'"
+}

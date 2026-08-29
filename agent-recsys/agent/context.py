@@ -92,7 +92,17 @@ def build_data_profile_text(baseline_ref: dict) -> str:
 def format_history_summary(history: list, max_recent: int = 8) -> str:
     """Keeps the prompt bounded: full detail for the most recent iterations,
     a compact one-liner for everything older. This is the main lever for
-    controlling per-call token cost as the run gets longer."""
+    controlling per-call token cost as the run gets longer.
+
+    Buckets the recent iterations into PROMISING (adopted -- beat whatever
+    they were judged against) vs DEAD ENDS (ran fine but scored below their
+    reference, so were discarded) vs FAILED TO RUN, instead of a flat
+    chronological list. A flat list leaves it entirely to the model to
+    notice which past hypotheses are worth building on vs repeating by
+    accident; bucketing makes that read explicit, and gives an explicit
+    instruction to refine promising directions and avoid (or invert) dead
+    ends rather than re-testing minor variants of something already shown
+    not to work."""
     if not history:
         return "No iterations yet. This is iteration 0 (reproduce baseline)."
 
@@ -113,22 +123,61 @@ def format_history_summary(history: list, max_recent: int = 8) -> str:
                 f"(\"{best_older['hypothesis'][:80]}\") "
                 f"valid primary {best_older['metrics']['valid']['primary']:.4f}"
             )
+        lines.append("")
 
-    for h in recent:
-        if h.get("status") == "ok":
-            m = h["metrics"]
+    def _fmt_ok(h: dict) -> str:
+        m = h["metrics"]
+        delta = h.get("actual_delta")
+        delta_str = (
+            f"{'+' if delta >= 0 else ''}{delta:.4f}" if delta is not None else "n/a"
+        )
+        return (
+            f"  iter {h['iteration']}: \"{h['hypothesis']}\" (edited {h['target_file']}) "
+            f"-> valid primary {m['valid']['primary']:.4f} "
+            f"(GAUC {m['valid']['GAUC']:.4f}, nDCG@5 {m['valid']['nDCG@5']:.4f}, "
+            f"delta {delta_str} vs. what it was judged against)"
+        )
+
+    promising = [h for h in recent if h.get("status") == "ok" and h.get("adopted")]
+    dead_ends = [h for h in recent if h.get("status") == "ok" and not h.get("adopted")]
+    failed = [h for h in recent if h.get("status") != "ok"]
+
+    if promising:
+        lines.append(
+            "PROMISING -- beat whatever they were judged against, and became "
+            "(or still are) the adopted best. Prefer refining these with a "
+            "concrete, different parameterization, or extending the same "
+            "underlying idea further, over abandoning a working direction "
+            "after only one attempt:"
+        )
+        lines += [_fmt_ok(h) for h in promising]
+        lines.append("")
+
+    if dead_ends:
+        lines.append(
+            "DEAD ENDS -- ran fine but scored below their reference, so were "
+            "discarded (never became 'current'). Do not repeat these or "
+            "propose a close variant of the same idea; if the underlying "
+            "mechanism still seems sound, consider trying the OPPOSITE of "
+            "what was changed rather than a small nudge to it:"
+        )
+        lines += [_fmt_ok(h) for h in dead_ends]
+        lines.append("")
+
+    if failed:
+        lines.append(
+            "FAILED TO RUN -- crashed even after repair attempts. Avoid this "
+            "exact approach; a different implementation of the same idea may "
+            "still be worth trying, but not a retry of what's shown here:"
+        )
+        for h in failed:
             lines.append(
-                f"iter {h['iteration']}: \"{h['hypothesis']}\" (edited {h['target_file']}) "
-                f"-> valid primary {m['valid']['primary']:.4f} "
-                f"(GAUC {m['valid']['GAUC']:.4f}, nDCG@5 {m['valid']['nDCG@5']:.4f})"
-            )
-        else:
-            lines.append(
-                f"iter {h['iteration']}: \"{h['hypothesis']}\" (edited {h['target_file']}) "
+                f"  iter {h['iteration']}: \"{h['hypothesis']}\" (edited {h['target_file']}) "
                 f"-> FAILED after {h.get('repair_attempts', 0)} repair attempt(s): "
                 f"{h.get('final_error', 'unknown error')[:200]}"
             )
-    return "\n".join(lines)
+
+    return "\n".join(lines).strip()
 
 
 def format_sibling_candidates(sibling_candidates: list, candidate_idx: int, candidates_per_iteration: int) -> str:

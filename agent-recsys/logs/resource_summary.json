@@ -1,7 +1,7 @@
 {
-  "llm_input_tokens": 0,
-  "llm_output_tokens": 0,
-  "total_llm_tokens": 0,
-  "wall_clock_hours": 0.1753,
+  "llm_input_tokens": 161224,
+  "llm_output_tokens": 18390,
+  "total_llm_tokens": 179614,
+  "wall_clock_hours": 0.1707,
   "iterations_run": 3
 }
