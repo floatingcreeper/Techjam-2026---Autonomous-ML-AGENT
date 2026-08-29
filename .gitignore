@@ -1,0 +1,21 @@
+# Virtual environments
+.venv/
+cudaenv/
+env/
+venv/
+
+# Secrets
+.env.local
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Agent run artifacts (large cache + per-run outputs)
+runs/
+agent/frozen.lock
+
+# Data (downloaded separately from kuairand.com, ~195 MB)
+KuaiRand-Pure/data/

@@ -1,0 +1,9 @@
+"""DIN block set -- ensemble: passthrough (assembly happens in the orchestrator)."""
+import numpy as np
+
+
+def combine(base, cfg):
+    arrs = list(base.values())
+    if len(arrs) == 1:
+        return np.asarray(arrs[0])
+    return np.mean(np.stack([np.asarray(a) for a in arrs]), axis=0)
