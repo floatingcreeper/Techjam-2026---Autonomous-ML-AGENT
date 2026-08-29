@@ -207,10 +207,18 @@ Orchestrator → Hypothesis (2-stage prompt via budget tier, §2/§3)
 
 ## Clarifying questions (blocking concrete parameter/architecture choices)
 
-- **Q1 — LLM provider/credentials for `agent/llm_client.py`**: defaulting to the Anthropic API
-  (env var `ANTHROPIC_API_KEY`, model `claude-sonnet-5`) since that's the model family already in
-  use for this project, but there is zero wiring in the repo today. Confirm provider/model and how
-  the key will be supplied before the client gets stubbed out.
+- **Q1 — RESOLVED, implemented**: `agent/llm_client.py` is built and smoke-tested against a local
+  Ollama server running `qwen2.5-coder:7b` (32k context, confirmed reachable at
+  `http://localhost:11434`). Uses Ollama's *native* `/api/chat` (not the OpenAI-compat shim) because
+  it returns exact `prompt_eval_count`/`eval_count` token counts on every response — no manual
+  tokenizer bookkeeping needed. `call(system, messages, *, json_mode, temperature, caller, timeout)
+  -> (text, usage)`; every call, success or failure, is appended to `runs/token_ledger.jsonl`. No
+  new dependency added — stdlib `urllib`, keeping the repo's numpy-only footprint (`requests` would
+  have been simpler but breaks that). `json_mode=True` (Ollama's `format: "json"`) verified working
+  — this is what strategy 2's hypothesis pipeline will lean on, since a 7B model is not reliable at
+  freeform "return exactly these fields" instructions without it. Host/model overridable via
+  `OLLAMA_HOST` / `AGENT_LLM_MODEL` env vars, defaults match the confirmed local setup. Verify with
+  `python -m agent.llm_client`.
 - **Q2 — What "hidden test split" actually refers to**: is the local `'test'` date-range split in
   `data.py` (real labels already sitting in the committed CSV) the thing that must be walled off —
   i.e. is it itself the graded hackathon set, so the isolation must be genuinely enforced — or is it
@@ -261,3 +269,9 @@ Orchestrator → Hypothesis (2-stage prompt via budget tier, §2/§3)
   plan. Consolidated v0.1's 3-file run schema into 1 structured log entry. Resolved the "mapping to
   Claude Code mechanics" open question (hybrid). Flagged reconciliation points with
   `ablation_features.py` and `baseline.py`. No code written yet.
+- v0.3 — Q1 resolved and implemented: `agent/__init__.py`, `agent/llm_client.py` wired to a local
+  Ollama server running `qwen2.5-coder:7b`, smoke-tested (plain call + `json_mode`) against the
+  actual running model, token logging to `runs/token_ledger.jsonl` confirmed working off Ollama's
+  native `prompt_eval_count`/`eval_count`. `.gitignore` += `runs/*` (+ `runs/.gitkeep`). Rest of
+  Phase 0 (`action_space.py`, `models/`, `data_guard.py`, `logging_schema.py`, `resume.py`,
+  `manual_intervention.py`) still not started. Q2/Q3 still open.
