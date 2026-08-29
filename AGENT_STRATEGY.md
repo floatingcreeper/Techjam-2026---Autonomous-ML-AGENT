@@ -1,10 +1,19 @@
 # Agentic Research Loop — Strategy Outline
 
-Status: **v0.7** — Phase 0 (partial) + Phases 1, 2, 4 built and verified against real data (real
-Ollama, real qwen2.5-coder:7b, real KuaiRand-Pure); Phase 3 folded into Phase 4 rather than kept
-separate. Resource consumption now tracked and reported every session (`agent/cost_report.py`) —
-see Changelog. Living document; refined as studies/prompts are fed in. Each refinement appends to
-the Changelog rather than rewriting history.
+Status: **v0.10** — Phases 0-6 all built and verified against the real stack (real Ollama, real
+qwen2.5-coder:7b, real KuaiRand-Pure). `python -m agent.cli run --iterations N` runs the loop;
+`runs/dashboard.html` (auto-regenerated every iteration, or `python -m agent.viewer` on demand) is
+the visual view. Every phase's file list, review findings, and live-discovered bugs are recorded
+in the Changelog below — nothing here is claimed without a verification note next to it. A real
+usage report (repeated hypotheses, runs stalling ~5 iterations) led to 3 more real fixes — see the
+v0.10 section: a code-level duplicate-config guard + higher propose temperature (repetition), and
+a convergence-math fix that was excluding real evidence incorrectly (false-early-stopping).
+Remaining, not yet built: `agent/action_space.py`'s `toggle_field`/`swap_model_variant` action
+types are named but not executable (need a `models/fm_v1_*.py` variant + `data.encode()` extension
+— see `models/base.py`'s docstring; this is also the most direct lever for longer, richer
+exploration, since the model's actual first instinct is almost always a features hypothesis); Q2/Q3
+from earlier revisions are still open. Living document; refined as studies/prompts are fed in. Each
+refinement appends to the Changelog rather than rewriting history.
 
 Design reference for this revision: Yang et al., "R&D-Agent: An LLM-Agent Framework Towards
 Autonomous Data Science," Microsoft Research/GenAI, 2025, arXiv:2505.14738 — **verified against the
@@ -369,29 +378,126 @@ done — that module doesn't exist yet, noted as a TODO for whenever it's built,
   available any time via that command — this is the ongoing, checkable answer to the "total LLM
   tokens + GPU-hours spent" scored dimension, not a one-time total.
 
-**Phase 5 — Orchestrator wiring**
-- `agent/orchestrator.py` (complete) — full loop per the diagram below, reads `resume.py` state.
-- `agent/archivist.py` — writes `runs/<NNNN>_<slug>/{stdout/, code_snapshot/}` (supplementary) +
-  appends the merged record to `runs/experiment_log.jsonl` + updates `runs/state.json` (last step).
-- `agent/cli.py` — `python -m agent.cli run [--iterations N | --budget-seconds N]`,
-  `python -m agent.cli note-intervention "..."`, `python -m agent.cli status`.
+**Phase 5 — Orchestrator wiring** — DONE (v0.8)
+Two steps existed nowhere before this phase and had to be built fresh (not sourced from
+`06-Master-Prompts_1.md`, which only ever specified propose/repair): **Coding** and **Guardrail**.
+- `agent/prompts/code.md`, `agent/coding_agent.py` — turns a hypothesis into ONE action from
+  `agent/action_space.py`'s vocabulary, or honestly reports `implementable: false` rather than
+  forcing a fake fit. Same JSON-validated, retry-once pattern as the rest of the codebase.
+- `agent/action_space.py` — v0's actual constrained action space: only `set_hyperparam` is
+  executable (`k`/`lr`/`l2`/`epochs`/`patience`/`batch_size`, bounded ranges); `toggle_field` and
+  `swap_model_variant` are named (so `target_stage`'s vocabulary has somewhere to point) but
+  raise `ActionNotExecutable` — no model variant beyond `fm_v0` exists yet, and `data.encode()`
+  isn't parameterized for extra fields. A real, structural safety property falls out of this for
+  free: no action type here can ever write a file or touch `evaluate.py`, because none of them
+  touch a file at all — Guardrail doesn't need static code analysis, just bounds-checking.
+- `agent/guardrail.py` — deliberately thin (see its own docstring for why that's a property of
+  the constrained action space, not laziness): re-validates the action, rejects anything not
+  executable, with a clear reason. A Guardrail/Coding rejection never calls `error_recovery` —
+  that's for runtime failures of code that ran, not a static rejection of a proposal.
+- `agent/resume.py`, `agent/manual_intervention.py` — the two remaining Phase 0 items, needed now.
+  `state.json` deliberately holds only `{last_completed_iteration, current_best}` — NOT history,
+  which is re-derived from `experiment_log.jsonl` on resume so there's one source of truth, not two
+  that can drift.
+- `agent/archivist.py`, `agent/orchestrator.py` (full `run_iteration()`/`run_loop()`), `agent/cli.py`
+  (`python -m agent.cli {run,status,note-intervention}`) — the actual sequence: Hypothesis → Coding
+  → Guardrail → debug_run → (repair-and-reject on failure) → full_run → reeval → Archivist →
+  convergence check. `run_loop()` always caps iterations (resolves the open "iteration cap"
+  question: yes, always, defaults to `expected_total_iterations`) and resumes from `state.json` if
+  present.
+- **v0's known, stated limitation, found live, not just designed around**: since only hyperparameter
+  actions are executable, and the propose prompt's own reasoning naturally gravitates toward
+  feature ideas early on, the FIRST real end-to-end run (iteration 1, real Ollama call) proposed
+  "add `is_like` as a feature" and Coding correctly rejected it as not-implementable — proving the
+  honesty mechanism works, but also revealing two real gaps, both fixed this revision: (1) the
+  rejection *reason* wasn't in `history_block`, only kept/discarded, so the model had no way to
+  learn from its own history — fixed in `logging_schema.to_history_entry()` +
+  `hypothesis_agent._format_entry()`. (2) nothing warned the model upfront which `target_stage` is
+  actually executable, wasting iteration 1's tokens/compute on every fresh run — fixed with an
+  explicit "action space today" line added to `agent/prompts/hypothesize.md` (and
+  `06-Master-Prompts_1.md`, kept in sync).
+- **Then a genuine, previously-undiscovered bug surfaced on re-verification, live**: the very
+  first real accepted candidate (hypothesis correctly pivoted to a hyperparameter change, full
+  pipeline ran and decided accept=True) crashed at the archiving step —
+  `TypeError: Object of type float32 is not JSON serializable`. `evaluate.evaluate()` returns
+  `numpy.float32` (fixed, do-not-modify per CLAUDE.md, so this can't be fixed at the source).
+  Fixed with a new `agent/json_utils.py` (a `default=` handler duck-typing on numpy scalars'
+  `.item()` method), applied at both JSON-writing boundaries (`archivist.py`, `resume.py`).
 
-**Phase 6 — Human-facing run/log viewer** (new this revision — explicit requirement, needed for the
-"quality/reasoning behind what the agent tried" scoring criterion, which a human has to actually be
-able to read)
-- `agent/viewer.py` — reads `runs/experiment_log.jsonl`, `runs/token_ledger.jsonl`, `runs/state.json`,
-  `runs/manual_interventions.jsonl`; renders one self-contained static `runs/dashboard.html` (plain
-  HTML/CSS/vanilla JS, data embedded inline at generation time — no server, no new dependency,
-  works offline, doubles as a demo artifact for judges). Shows: iteration timeline
-  (`hypothesis.statement`, `target_stage`, accept/reject, valid `primary` delta, current-best-vs-
-  `fm_official`-vs-`oracle_ceiling` reference lines — test score shown but visually de-emphasized,
-  never framed as the deciding number), running token cost + cost-per-iteration (feeds the cost
-  report), error/recovery events per iteration, manual-intervention count, convergence countdown
-  (`stale_count` vs `N`).
-- Only depends on `agent/logging_schema.py`'s format (end of Phase 0) — doesn't need the orchestrator
-  running to start development; can build/test against a small hand-written synthetic log first.
-- Regenerated as the last step of `agent/archivist.py` each iteration (cheap — it's reading a few
-  small JSONL files — so the human can just leave `runs/dashboard.html` open and refresh).
+**Code review findings (`code-review high`, scoped to `agent/` + `models/`) — all 7 fixed**:
+1. `orchestrator.py`: the full run + reeval's extra-seed passes weren't wrapped in try/except
+   (only `debug_run` was) — a real-scale-only crash (debug_run's own docstring admits this is
+   possible) would have propagated out and killed the whole loop. Fixed: same
+   repair-and-reject handling as a `debug_run` failure.
+2. `error_recovery.py`: `error_event()`'s `repaired` field was set from `bool(fixable)` — the
+   model's "this is fixable in principle" claim, not "this was actually fixed" — misleading given
+   v0 never re-applies a fix. Fixed: `repaired` now defaults to `False`, a caller must prove it.
+3. `reeval.py`: `recheck()` unconditionally ran both extra full-training seeds even for a
+   candidate already far below current-best with no realistic chance of the mean crossing the
+   bar — wasted compute against the project's own scored "compute spent" dimension. Fixed: a
+   cheap short-circuit skips the extra seeds when `original_primary <= current_best_primary`.
+4. `debug_run.py`: `_is_plausible()` was called OUTSIDE the try/except guarding `train_fn`, so a
+   malformed (non-exception-raising) metrics dict could still crash `debug_run()`, contradicting
+   its own documented "never propagates an exception" guarantee. Fixed: both calls now share one
+   try/except.
+5. `hypothesis_agent.py`/`coding_agent.py`/`error_recovery.py`: ~30 lines of templating/JSON-parse
+   logic duplicated near-verbatim three times. Fixed: extracted to `agent/prompt_utils.py`, all
+   three now import from there.
+6. `reeval.py`: `enabled=RECHECK_TOP_CANDIDATE` as a literal default bound at function-definition
+   time, so flipping the module constant later wouldn't affect existing callers. Fixed:
+   `enabled=None` default, resolved against the current module value at call time.
+7. `action_space.py`: `validate_action()` didn't check that int-typed hyperparams (`k`, `epochs`,
+   `patience`, `batch_size`) actually got integer values — `apply_action()` silently truncated a
+   fractional value, so the logged pseudo-diff misrepresented what was actually proposed. Fixed:
+   rejected explicitly, routes back through the existing retry-once mechanism instead.
+
+**8th finding, from a real resume test, not the static review**: a genuine Ollama timeout (this
+machine's CPU shared between Ollama and this repo's numpy training — queuing an LLM call right
+after a heavy training pass is exactly when this shows up) raised `agent.llm_client.LLMError` from
+inside `propose()`, and it propagated all the way out of `run_loop()`, killing the whole process.
+Crash-safe resume then worked *exactly* as designed — a fresh process correctly picked up from
+iteration 3, no lost progress — but a transient network timeout shouldn't need a full crash +
+manual restart to recover from in the first place; that bar is too blunt for something this
+common, and doesn't meet "recovers from failures instead of crashing" for what's really just a
+network hiccup. Fixed: `agent/orchestrator.py` now wraps each iteration in
+`_run_iteration_with_retry()` — backs off (5s/15s/30s) and retries specifically on `LLMError`
+before giving up, at which point crash-safe resume remains the final fallback, not the first
+line of defense. Also bumped `agent/llm_client.py`'s default timeout 120s → 180s.
+
+**Phase 6 — Human-facing run/log viewer** — DONE (v0.9)
+- `agent/viewer.py` — reads `runs/experiment_log.jsonl`, `runs/state.json`,
+  `runs/manual_interventions.jsonl` (via `agent/manual_intervention.py`) and
+  `runs/token_ledger.jsonl` (via `agent/cost_report.py`, reused rather than re-parsed); renders one
+  self-contained `runs/dashboard.html` — a real standalone HTML document (its own `<!DOCTYPE>`/
+  `<html>`/`<head>`/`<body>`, since this is a local file opened directly in a browser, not
+  published through Claude's Artifact tool, which wraps that automatically). No server, no
+  external library — even the best-primary-over-iterations chart is hand-rolled inline SVG, not a
+  charting dependency, matching decision #15 (static file, not a running server). Light/dark via
+  `prefers-color-scheme`.
+- Shows: header stats (current-best primary, delta vs `fm_official`, delta vs `oracle_ceiling`,
+  convergence countdown `stale/N`, manual-intervention count), the SVG chart (dashed reference
+  lines for `fm_official`/`oracle_ceiling`; the line only moves on ACCEPTED iterations, so a
+  rejected iteration doesn't visually look like progress), a per-iteration table
+  (`hypothesis.statement`, `target_stage`, accept/reject badge, primary, token cost, wall-clock,
+  and — for rejected iterations — the actual rejection reason inline, the same
+  `to_history_entry()`-sourced reason the model itself learns from), the resource-consumption
+  breakdown from `agent/cost_report.py`, and the manual-intervention log. Test-split scores never
+  appear anywhere — the dashboard only has access to what `agent/data_guard.py` ever returns.
+- Wired into `agent/archivist.py`'s existing best-effort `_regenerate_dashboard()` (written in
+  Phase 5 to silently no-op via `ImportError` until this module existed) — **verified this
+  actually activates now**: a direct `archivist.archive()` call regenerated `runs/dashboard.html`
+  with no code change to `archivist.py` needed, and a follow-up check confirmed it points at the
+  real default log files (not whatever alternate path a caller happened to pass for testing).
+- **Verified against the real data already in `runs/`** (3 real iterations from Phase 5
+  end-to-end testing): valid, complete HTML (`<!doctype html>` → `</html>`), current-best primary
+  0.5995 rendered correctly, both real hypothesis statements rendered correctly (including
+  iteration 1's exact rejection reason — "batch size of 32 is outside the allowed range
+  [256, 65536]" — the same text the model itself read from history before proposing the
+  boundary-correct 256 in iteration 2), reference lines fm_official=0.6016 / oracle=0.8484
+  matching `baseline_scores.json` exactly.
+- Not done in this pass: no JS interactivity (static tables only — sufficient for v1, no
+  functional gap, just a possible future nicety), no automated screenshot/visual-render check (only
+  content-level verification — opening it in an actual browser is still worth a manual look).
 
 ## Updated loop diagram (supersedes v0.1's step 4)
 
@@ -513,6 +619,95 @@ Orchestrator → Hypothesis (2-stage prompt via budget tier, §2/§3)
 - Where do user-fed studies/papers get ingested — a `studies/` folder the Hypothesis Agent reads,
   with one short note per study on what it suggests trying here?
 
+## v0.10 — real-usage bug report and fixes (repeated hypothesis + capped-around-5 runs)
+
+**Reported**: real runs kept stalling around iteration 5, and the agent kept proposing "increase
+the learning rate to 0.01" repeatedly. Investigated directly against the actual `runs/` logs
+rather than guessing:
+
+- **The repetition was real and worse than it looked**: iterations 3, 4, and 5 all proposed the
+  *identical* hypothesis and got a *bit-identical* `primary` (`0.5741060972213745`, matching to
+  the last float32 digit) — because this pipeline is fully deterministic given a fixed seed and
+  unchanged current-best, so the same config always reproduces the same result. Not just weak
+  model diversity — three full debug_run+full_run+reeval cycles rediscovering an answer already
+  known, pure wasted compute.
+- **Root cause, two parts**: (1) `agent/hypothesis_agent.py`'s `propose()` never overrode
+  `llm_client.call`'s low default temperature (0.2) — near-deterministic sampling made
+  `qwen2.5-coder:7b` converge on the same "obvious" hyperparameter change regardless of context.
+  (2) nothing enforced the prompt's existing "don't repeat a discarded hypothesis" instruction —
+  it was a soft suggestion a small model didn't reliably follow.
+- **The timeout in the ledger traces to a real, already-identified bug class**: a genuine Ollama
+  `"timed out"` entry appeared in `runs/token_ledger.jsonl` from an actual run. Two likely
+  contributors: the LLMError-retry fix from v0.8 not yet having reached whatever process was
+  running (Python doesn't hot-reload edited `.py` files — a long-lived `cli run` process started
+  before a fix lands keeps executing the old in-memory code until restarted), and Ollama's default
+  5-minute `keep_alive` unloading the model during a real full-scale training run's multi-minute
+  gap, forcing a slow reload on the next call that can itself exceed even a generous timeout.
+
+**Fixed**:
+1. `agent/hypothesis_agent.py`: `propose()` now defaults to `temperature=0.8` (was inheriting
+   `llm_client.call`'s 0.2) — json_mode's grammar constraint keeps output schema-valid regardless
+   of temperature, so this trades away nothing on validity while directly increasing variety.
+2. `agent/prompts/hypothesize.md` (and `06-Master-Prompts_1.md`, kept in sync): the anti-repetition
+   instruction rewritten from a soft suggestion to an explicit, high-stakes rule — states plainly
+   that a repeated hyperparameter change will be detected and skipped without even training.
+3. **New: a code-level duplicate-config guard**, not just a prompt fix — `agent/logging_schema.py`
+   now stores `resulting_config` (the FULL config after the action is applied, not just the raw
+   action — comparing the full config, not the delta, avoids false positives if current-best has
+   changed since a prior attempt) on every record; `agent/orchestrator.py`'s
+   `_find_duplicate_config()` checks the last `DUPLICATE_CHECK_WINDOW=5` rejected iterations for an
+   exact match BEFORE `debug_run`, and skips straight to a cheap, clearly-labeled rejection if
+   found ("identical resulting config already tried and rejected in iteration N") — this doesn't
+   rely on the model behaving; it structurally prevents the waste even if the prompt fix alone
+   isn't enough for a 7B model.
+4. `agent/llm_client.py`: added `"keep_alive": "30m"` to the Ollama request payload, so the model
+   stays resident across a normal training-run-sized gap instead of Ollama's 5-minute default.
+5. Documented plainly (for the user, not a code fix): if a `cli run` process was started before
+   any of v0.8's fixes landed, it needs to be **restarted** to pick them up — editing `.py` files
+   does not affect an already-running Python process.
+
+**A 6th, likely bigger fix, found while verifying the first 5**: continuing the real run from
+iteration 6, the loop reported "converged" after a single non-executed iteration (rejected at
+Coding, never reached training). Traced it to `_converged()`/`_stale_count()` comparing the "last
+N iterations" by raw position, without distinguishing an iteration that actually ran training from
+one rejected before ever reaching it — so a run of not-implementable/duplicate-skipped rejections
+was counted as "N real attempts without improvement" and triggered false-early convergence. Fixed:
+`agent/logging_schema.to_history_entry()` now exposes `executed: bool(metrics present)`; both
+`agent/orchestrator.py`'s `_converged()` and `agent/hypothesis_agent.py`'s `_stale_count()` filter
+to executed iterations only before applying the N/epsilon window.
+
+**Verified, clean state, all fixes together** (real Ollama, real full-scale-ish config — 12 epochs/
+patience 4, not the earlier heavily-shortened test config): 4 iterations, **4 genuinely distinct
+hypotheses** (`epochs=50`, `lr=0.005`, `lr=0.01`, `epochs=30`) — no exact repeats. Real progress
+found: current-best moved from the old 0.5995 to **0.6015** (iteration 1's `epochs=50`, beating the
+old best via a better early-stopping point). Convergence then triggered after iteration 4 — but
+this time for a **legitimate** reason: 3 genuinely different, fully-executed hypotheses in a row
+(iterations 2-4) each failed to beat iteration 1's new best by more than epsilon. Not a bug this
+time — confirmed by checking `executed=True` on all 4 entries before the convergence check fired.
+
+**Honest caveat, not another bug**: converging in ~4-6 iterations may often be the *correct*
+outcome right now, not something left to fix — v0's action space is deliberately hyperparameter-
+only (decision #2), a narrow space that a reasonably-tuned baseline doesn't leave much room to beat
+via hyperparameters alone. Nearly every real run so far has the model's actual first instinct
+being a **features** hypothesis ("add `is_like`", "add `play_time_ms`") — rejected as
+not-implementable every time. If more, longer exploration is wanted, the principled lever is
+expanding the action space (the already-flagged, not-yet-built `toggle_field` path — needs a
+`models/fm_v1_*.py` variant + a `data.encode()` extension), not loosening
+`CONVERGENCE_N`/`CONVERGENCE_EPSILON`, which are the officially-specified values from
+`baseline_scores.json`'s own `convergence_rule`, not ours to relax unilaterally.
+
+**Also worth noting, not fixed (minor, not the headline)**: iteration 4's `resulting_config` had
+`epochs=30`, genuinely different from iteration 1's `epochs=50`, so the duplicate-config guard
+correctly did NOT skip it — but early stopping (patience=4) kicked in around epoch 11 in both
+cases, well below either cap, so the actual trained result came out bit-identical anyway
+(`seed_primaries` matched iteration 1's exactly). The guard is doing its job correctly (it only
+promises to catch identical *configs*, not configs that are merely *functionally* equivalent due
+to early stopping) — flagged as a possible future refinement, not a defect to fix now.
+
+**Also confirmed important for the user**: if a `cli run` process was started before these (or
+v0.8's) fixes landed in the source files, it must be restarted — Python does not hot-reload edited
+`.py` files, so an already-running process keeps executing whatever code was loaded at its start.
+
 ## Changelog
 - v0.1 — initial outline.
 - v0.2 — integrated 4 of R&D-Agent's 6 components (Yang et al. 2025, arXiv:2505.14738): debug-first
@@ -569,3 +764,36 @@ Orchestrator → Hypothesis (2-stage prompt via budget tier, §2/§3)
   consumption is now tracked continuously (`runs/token_ledger.jsonl`) and reportable on demand via
   `python -m agent.cost_report`, per an explicit ask to keep this an ongoing tracked thing rather
   than a one-time total. Fixed a Windows-console mojibake bug in that report's own output.
+- v0.8 — **Phase 5 built** (`action_space.py`, `coding_agent.py` + `prompts/code.md`,
+  `guardrail.py`, `resume.py`, `manual_intervention.py`, `archivist.py`, full `orchestrator.py`,
+  `cli.py`). **Full `code-review high` pass** on `agent/`+`models/`: 7 findings, all fixed (see
+  Phase 5 section for the list — crash exposure in the full-run/reeval path, a misleading
+  `repaired` log field, wasted reeval compute, an uncaught-exception gap in `debug_run`, 3x
+  duplicated templating code extracted to `agent/prompt_utils.py`, a mutable-default-argument bug,
+  silent int-truncation in the action space). **2 more bugs found live, through actual runs, not
+  static review**: (1) `evaluate.py` returns `numpy.float32`, which crashed the very first real
+  archiving step (`TypeError: not JSON serializable`) — fixed with `agent/json_utils.py`. (2) a
+  real Ollama timeout under CPU contention crashed the whole loop, correctly triggering (and
+  proving out) crash-safe resume, but that's too blunt a recovery path for a network hiccup —
+  fixed with `_run_iteration_with_retry()`'s backoff-retry in `orchestrator.py` + a bumped
+  `llm_client.py` timeout. **Also found and fixed, mid-Phase-5**: the propose prompt had no way to
+  tell the model which `target_stage` is actually executable, so iteration 1 reliably wasted a
+  full LLM round-trip on an unimplementable "features" hypothesis every fresh run; and rejection
+  reasons never made it into `history_block`, so the model couldn't learn from its own history —
+  both fixed, and the fix was then observed working live (iteration 2 read iteration 1's exact
+  rejection reason and proposed the boundary-correct value). Verified end-to-end multiple times:
+  full loop with real accept/reject decisions, a genuine cross-process resume (kill+restart
+  simulated via two separate interpreter invocations reading the same `runs/state.json`), `cli
+  status`/`note-intervention`. `python -m agent.cli run --iterations N` is a real, working
+  entrypoint. Only Phase 6 (dashboard) remains unstarted.
+- v0.9 — **Phase 6 built**: `agent/viewer.py` → `runs/dashboard.html`, a standalone (own
+  doctype/html/head/body — not Artifact-published, a local auto-regenerating file) dependency-free
+  page with a hand-rolled inline-SVG progression chart, per-iteration table (including inline
+  rejection reasons), resource-consumption breakdown, and manual-intervention log. Wired into
+  `agent/archivist.py`'s existing best-effort hook (no code change needed there — it was already
+  waiting for this module to exist). Verified against the real 3-iteration log already in `runs/`:
+  valid HTML, correct current-best/reference-line numbers, correct hypothesis text and rejection
+  reasons. Verified the auto-regeneration wiring activates for real (a direct `archivist.archive()`
+  call produced `runs/dashboard.html` with no `archivist.py` change), and that it always points at
+  the real default log files regardless of what path a given `archive()` call used. All 6 phases
+  from the original plan are now built and verified end-to-end.

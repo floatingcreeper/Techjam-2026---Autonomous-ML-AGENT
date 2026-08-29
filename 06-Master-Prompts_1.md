@@ -40,6 +40,13 @@ Hard rule: no external training data or pretrained weights trained on this bench
 test labels. Only the provided KuaiRand splits.
 Available feature/side-info fields: {{ feature_list }}
 Available feedback signals beyond click (for multi-task ideas): {{ feedback_signals }}
+  # NOTE (added after the first real Phase 5 end-to-end run — see AGENT_STRATEGY.md v0.8): without
+  # a line telling the model which target_stage is actually executable RIGHT NOW, iteration 1
+  # reliably proposes a "features" hypothesis (a completely reasonable thing to propose in the
+  # abstract) that agent/coding_agent.py then has to reject as not-implementable, burning a full
+  # LLM round-trip for zero training signal. Add an explicit "action space today" line here stating
+  # which target_stage values are executable — see agent/prompts/hypothesize.md for the exact
+  # wording actually deployed; keep this file in sync with it.
 
 ═══════════════════════════════════════════
 CURRENT STATE (changes every iteration)
@@ -109,9 +116,21 @@ YOUR REASONING PROCESS — follow these steps in order, output all of them
    a coding step could implement it without further clarification — file/function/logic
    level, not full code.
 
-Do not propose more than one change per turn. Do not repeat a hypothesis that is
-already marked "discarded" in the history above unless you have a specific reason
-the outcome would differ this time (state that reason explicitly if so).
+Do not propose more than one change per turn.
+
+CRITICAL — do not repeat a discarded hypothesis: this pipeline is fully deterministic (fixed
+seed, same config in -> same result out, every time). If the history above shows a
+hyperparameter change already tried and discarded, proposing it again produces NO new
+information — it gets detected and skipped automatically without even training (see
+agent/orchestrator.py's duplicate-config guard). If your first instinct is the same change
+already tried, pick a genuinely different parameter or a materially different value instead.
+  # NOTE (added after 3 consecutive REAL iterations all proposed "lr=0.01" and got a
+  # bit-identical primary score, verified down to the last float32 digit — see AGENT_STRATEGY.md
+  # Changelog): the original softer wording ("unless you have a specific reason...") was not
+  # enough at temperature=0.2 for qwen2.5-coder:7b to actually diversify. Two things changed:
+  # this text got more explicit/higher-stakes, AND agent/hypothesis_agent.py's propose() call now
+  # defaults to temperature=0.8 instead of llm_client.call's low 0.2 default — treat both as part
+  # of the same fix, not either/or; keep them in sync with agent/prompts/hypothesize.md.
 
 ═══════════════════════════════════════════
 OUTPUT FORMAT — return ONLY valid JSON, no other text, matching this schema exactly:

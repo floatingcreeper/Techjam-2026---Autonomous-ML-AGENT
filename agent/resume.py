@@ -11,6 +11,8 @@ never something in between.
 import json
 import os
 
+from agent.json_utils import json_default
+
 STATE_PATH = os.path.join('runs', 'state.json')
 
 
@@ -32,5 +34,5 @@ def save_state(state, path=STATE_PATH):
         os.makedirs(d, exist_ok=True)
     tmp_path = path + '.tmp'
     with open(tmp_path, 'w', encoding='utf-8') as fh:
-        json.dump(state, fh, indent=2)
+        json.dump(state, fh, indent=2, default=json_default)  # numpy-safe, see agent/json_utils.py
     os.replace(tmp_path, path)

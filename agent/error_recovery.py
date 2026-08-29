@@ -10,52 +10,13 @@ attempt_number+1 if it still fails (up to MAX_REPAIR_ATTEMPTS, then rolling back
 is the orchestrator's job (Phase 5, not yet built) — a fake "loop" living here that can't actually
 re-execute the candidate would be misleading, not useful.
 """
-import json
 import os
-import re
 
 from agent import llm_client
+from agent.prompt_utils import fill_template, load_template, parse_json
 
 PROMPT_PATH = os.path.join(os.path.dirname(__file__), 'prompts', 'repair.md')
 MAX_REPAIR_ATTEMPTS = 3
-
-_PLACEHOLDER_RE = re.compile(r"\{\{\s*(\w+)\s*\}\}")
-
-
-def _load_template(path=PROMPT_PATH):
-    with open(path, encoding='utf-8') as fh:
-        return fh.read()
-
-
-def _fill_template(template, mapping):
-    missing = []
-
-    def _sub(m):
-        key = m.group(1)
-        if key not in mapping:
-            missing.append(key)
-            return m.group(0)
-        return str(mapping[key])
-
-    filled = _PLACEHOLDER_RE.sub(_sub, template)
-    if missing:
-        raise KeyError(f"repair.md referenced placeholders not supplied: {sorted(set(missing))}")
-    return filled
-
-
-def _strip_fences(text):
-    t = text.strip()
-    if t.startswith('```'):
-        t = re.sub(r'^```(?:json)?\s*', '', t)
-        t = re.sub(r'```\s*$', '', t)
-    return t.strip()
-
-
-def _parse(text):
-    try:
-        return json.loads(_strip_fences(text)), None
-    except json.JSONDecodeError as e:
-        return None, f"invalid JSON: {e}"
 
 
 def _validate(obj):
@@ -98,18 +59,18 @@ def repair(*, hypothesis_statement, code_diff, error_message, attempt_number,
     internally — a malformed repair response is itself surfaced as ok=False and counted as one of
     the caller's MAX_REPAIR_ATTEMPTS, since the whole point of this prompt is cheap-and-fast, not
     another reasoning cycle."""
-    template = _load_template(template_path)
-    system = _fill_template(template, {
+    template = load_template(template_path)
+    system = fill_template(template, {
         'hypothesis_statement': hypothesis_statement,
         'attempt_number': attempt_number,
         'max_attempts': max_attempts,
         'code_diff': code_diff,
         'error_message': error_message,
-    })
+    }, source_name='repair.md')
     messages = [{'role': 'user', 'content': 'Diagnose and fix this failure now.'}]
     text, usage = llm_call(system=system, messages=messages, json_mode=True, caller=caller)
 
-    obj, err = _parse(text)
+    obj, err = parse_json(text)
     if err is None:
         err = _validate(obj)
     if err is not None:
@@ -117,9 +78,19 @@ def repair(*, hypothesis_statement, code_diff, error_message, attempt_number,
     return RepairResult(ok=True, data=obj, usage=usage)
 
 
-def error_event(attempt, error_message, result):
+def error_event(attempt, error_message, result, *, repaired=False):
     """Builds one entry for the iteration record's error_events list (agent/logging_schema.py)
-    from a repair() call's RepairResult."""
+    from a repair() call's RepairResult.
+
+    `repaired`: whether the proposed fix was actually applied AND re-verified to work. This
+    function has no way to know that on its own — it only has a diagnosis — so it defaults to
+    False; a caller must explicitly pass True, and only after confirming a re-run succeeded.
+    Found in code review: this used to default to `bool(d['fixable'])`, conflating "the model
+    believes this is fixable in principle" with "this was fixed" — a real bug, since
+    agent/orchestrator.py never re-applies or re-verifies a fix in v0 (see its own docstring),
+    so every call site here was logging `repaired: true` for candidates that were actually just
+    discarded like any other failure. `fixable` (the model's diagnosis-level claim) is unaffected
+    and still comes straight from the repair response."""
     if not result.ok:
         return {'attempt': attempt, 'error_text': error_message, 'diagnosis': None,
                 'fixable': None, 'fix_description': f"repair response itself invalid: {result.error}",
@@ -127,4 +98,4 @@ def error_event(attempt, error_message, result):
     d = result.data
     return {'attempt': attempt, 'error_text': error_message, 'diagnosis': d['diagnosis'],
             'fixable': d['fixable'], 'fix_description': d['fix_description'],
-            'repaired': bool(d['fixable'])}
+            'repaired': repaired}

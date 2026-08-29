@@ -56,6 +56,13 @@ def validate_action(action):
         value = action.get('value')
         if not isinstance(value, (int, float)) or isinstance(value, bool):
             return f"action.value={value!r} is not a number"
+        # Found in review: apply_action's pytype(value) silently TRUNCATES a fractional value for
+        # an int-typed param (e.g. k=64.9 -> 64) with no warning — the logged pseudo-diff then
+        # misrepresents what was actually proposed. Reject it here instead, so coding_agent's
+        # existing retry-once-on-invalid-response loop asks for a whole number instead.
+        if pytype is int and float(value) != int(value):
+            return (f"action.value={value!r} for {param!r} must be a whole number ({param!r} is "
+                     f"integer-typed) — a fractional value would be silently truncated")
         if not (lo <= value <= hi):
             return f"action.value={value!r} for {param!r} outside allowed range [{lo}, {hi}]"
         return None

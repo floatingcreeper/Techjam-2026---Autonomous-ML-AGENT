@@ -34,7 +34,12 @@ def _append_ledger(record):
         fh.write(json.dumps(record) + "\n")
 
 
-def call(system, messages, *, json_mode=False, temperature=0.2, caller="unknown", timeout=120):
+def call(system, messages, *, json_mode=False, temperature=0.2, caller="unknown", timeout=180):
+    # NOTE: bumped from 120s after a real timeout during Phase 5 verification — Ollama competes
+    # for the same CPU cores as this repo's numpy training, so a call queued right after a heavy
+    # training pass can genuinely take longer than usual. agent/orchestrator.py's
+    # _run_iteration_with_retry() is the other half of handling this: retries a timeout instead of
+    # crashing the whole loop over it.
     """One LLM call.
 
     system:      system prompt (str)
@@ -54,6 +59,13 @@ def call(system, messages, *, json_mode=False, temperature=0.2, caller="unknown"
         "messages": [{"role": "system", "content": system}] + list(messages),
         "stream": False,
         "options": {"temperature": temperature},
+        # Ollama's default keep_alive is 5 minutes — a real full-scale training run (this repo's
+        # default config: epochs=40) easily creates gaps longer than that between LLM calls,
+        # which unloads the ~4.7GB model and forces a slow disk reload on the next call. That
+        # reload can itself exceed even a generous timeout, which is what a real timeout in
+        # runs/token_ledger.jsonl during Phase 5 verification traced back to. "30m" keeps the
+        # model resident across a normal training-run-sized gap without pinning it forever.
+        "keep_alive": "30m",
     }
     if json_mode:
         payload["format"] = "json"

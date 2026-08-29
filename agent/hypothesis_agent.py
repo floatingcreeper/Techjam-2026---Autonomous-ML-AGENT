@@ -16,11 +16,11 @@ an infrastructure failure, not a hypothesis-quality one, and belongs in error_re
 """
 import json
 import os
-import re
 
 from agent import llm_client
 from agent.budget import budget_tier_instruction, iteration_budget_fraction
 from agent.config import CONVERGENCE_EPSILON, CONVERGENCE_N
+from agent.prompt_utils import fill_template, load_template, parse_json
 
 PROMPT_PATH = os.path.join(os.path.dirname(__file__), 'prompts', 'hypothesize.md')
 BASELINE_SCORES_PATH = 'baseline_scores.json'
@@ -77,19 +77,32 @@ def _load_baseline_reference(path=BASELINE_SCORES_PATH):
 
 
 def _stale_count(history):
-    """Iterations since the last 'kept' (accepted) entry, counting from the end."""
+    """Executed iterations since the last 'kept' (accepted) entry, counting from the end. Only
+    counts entries that actually completed a real training run (h['executed']) — a hypothesis
+    rejected before training (not-implementable, guardrail-rejected, duplicate-skipped,
+    hypothesis-generation-failed) is skipped over, not counted and not treated as a break, since
+    it provides no evidence either way about whether the search has stalled. Found live: without
+    this filter, a short run of pre-training rejections inflated stale_count (and, more
+    seriously, falsely triggered agent/orchestrator.py's convergence check) after essentially no
+    real search had happened."""
     n = 0
     for h in reversed(history):
         if h.get('kept'):
             break
+        if not h.get('executed'):
+            continue
         n += 1
     return n
 
 
 def _format_entry(h):
-    kept = 'kept' if h.get('kept') else 'discarded'
+    if h.get('kept'):
+        outcome = 'kept'
+    else:
+        reason = h.get('reason')
+        outcome = f"discarded — {reason}" if reason else "discarded"
     return (f"- iter {h['iteration']}: [{h['target_stage']}] \"{h['statement']}\" -> "
-            f"primary={h['primary']:.4f} (GAUC={h['gauc']:.4f}, nDCG@5={h['ndcg5']:.4f}) ({kept})")
+            f"primary={h['primary']:.4f} (GAUC={h['gauc']:.4f}, nDCG@5={h['ndcg5']:.4f}) ({outcome})")
 
 
 def format_history(history, window=8):
@@ -161,52 +174,10 @@ def build_state(splits, *, current_best, iteration_number, expected_total_iterat
 
 
 # ---------------------------------------------------------------------------
-# templating
+# validate (templating and JSON parsing now live in agent/prompt_utils.py — see its docstring
+# for why: this file, agent/coding_agent.py, and agent/error_recovery.py each had their own
+# near-identical copy until code review flagged the duplication)
 # ---------------------------------------------------------------------------
-
-_PLACEHOLDER_RE = re.compile(r"\{\{\s*(\w+)\s*\}\}")
-
-
-def _load_template(path=PROMPT_PATH):
-    with open(path, encoding='utf-8') as fh:
-        return fh.read()
-
-
-def _fill_template(template, mapping):
-    missing = []
-
-    def _sub(m):
-        key = m.group(1)
-        if key not in mapping:
-            missing.append(key)
-            return m.group(0)
-        return str(mapping[key])
-
-    filled = _PLACEHOLDER_RE.sub(_sub, template)
-    if missing:
-        raise KeyError(f"hypothesize.md referenced placeholders build_state() didn't supply: "
-                        f"{sorted(set(missing))}")
-    return filled
-
-
-# ---------------------------------------------------------------------------
-# parse + validate
-# ---------------------------------------------------------------------------
-
-def _strip_fences(text):
-    t = text.strip()
-    if t.startswith('```'):
-        t = re.sub(r'^```(?:json)?\s*', '', t)
-        t = re.sub(r'```\s*$', '', t)
-    return t.strip()
-
-
-def _parse(text):
-    try:
-        return json.loads(_strip_fences(text)), None
-    except json.JSONDecodeError as e:
-        return None, f"invalid JSON: {e}"
-
 
 def _validate(obj):
     """Returns None if valid, else a human-readable error string."""
@@ -233,13 +204,21 @@ def _validate(obj):
 # ---------------------------------------------------------------------------
 
 def propose(state, *, llm_call=llm_client.call, max_retries=1, template_path=PROMPT_PATH,
-            caller='hypothesis_agent'):
+            caller='hypothesis_agent', temperature=0.8):
     """Runs the propose prompt once, retries once more on an invalid/incomplete response (per
     06-Master-Prompts_1.md's guidance), then gives up. Returns a HypothesisResult; a genuine
     agent.llm_client.LLMError (Ollama unreachable, timeout, ...) propagates unchanged — that's
-    infrastructure failure, not something a prompt retry can fix."""
-    template = _load_template(template_path)
-    system = _fill_template(template, state)
+    infrastructure failure, not something a prompt retry can fix.
+
+    temperature=0.8 (not llm_client.call's low default of 0.2): found live that at low
+    temperature, qwen2.5-coder:7b reliably converges on the same "obvious" hyperparameter change
+    (lr=0.01) across multiple iterations even with different history context each time — a
+    real diversity problem, not just a prompt-wording one. The retry-once mechanism above still
+    catches a malformed/incomplete response regardless of temperature; json_mode's grammar
+    constraint (not temperature) is what keeps output schema-valid, so raising this doesn't
+    trade away validity for variety."""
+    template = load_template(template_path)
+    system = fill_template(template, state, source_name='hypothesize.md')
     messages = [{'role': 'user', 'content': "Propose your next iteration's hypothesis now."}]
     total_usage = {'input_tokens': 0, 'output_tokens': 0}
 
@@ -248,11 +227,12 @@ def propose(state, *, llm_call=llm_client.call, max_retries=1, template_path=PRO
     obj = None
     while True:
         attempts += 1
-        text, usage = llm_call(system=system, messages=messages, json_mode=True, caller=caller)
+        text, usage = llm_call(system=system, messages=messages, json_mode=True, caller=caller,
+                                temperature=temperature)
         total_usage['input_tokens'] += usage.get('input_tokens', 0)
         total_usage['output_tokens'] += usage.get('output_tokens', 0)
 
-        obj, err = _parse(text)
+        obj, err = parse_json(text)
         if err is None:
             err = _validate(obj)
         if err is None:

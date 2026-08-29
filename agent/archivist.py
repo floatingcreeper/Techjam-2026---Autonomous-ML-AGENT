@@ -8,9 +8,9 @@ Dashboard regeneration (Phase 6) is wired in as best-effort: if agent/viewer.py 
 (it doesn't, as of Phase 5), this silently no-ops rather than failing the whole archive step over
 a UI file that isn't the source of truth.
 """
-import json
 import os
 
+from agent.json_utils import dumps
 from agent.resume import save_state
 
 LOG_PATH = os.path.join('runs', 'experiment_log.jsonl')
@@ -21,7 +21,7 @@ def append_record(record, *, log_path=LOG_PATH):
     if d:
         os.makedirs(d, exist_ok=True)
     with open(log_path, 'a', encoding='utf-8') as fh:
-        fh.write(json.dumps(record) + '\n')
+        fh.write(dumps(record) + '\n')  # numpy-safe — see agent/json_utils.py
 
 
 def _regenerate_dashboard():

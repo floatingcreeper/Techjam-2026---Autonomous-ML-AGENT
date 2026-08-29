@@ -92,15 +92,19 @@ def debug_run(train_fn, splits, config, *, seed=0,
     t0 = time.time()
     try:
         sample_metrics = train_fn(debug_splits, debug_config)
+        ok, reason = _is_plausible(sample_metrics)
     except Exception as e:  # noqa: BLE001 — intentionally broad: ANY candidate-code failure
         # (shape mismatch, KeyError from a bad field name, OOM, ...) must become a DebugResult,
-        # not a crash. The Guardrail step (not yet built) is the first line of defense against
-        # obviously-bad diffs; this is the last line of defense for what it missed.
+        # not a crash. The Guardrail step is the first line of defense against obviously-bad
+        # diffs; this is the last line of defense for what it missed. Deliberately wraps
+        # _is_plausible() too, not just train_fn() — code review caught that a malformed (but
+        # non-exception-raising) metrics dict, e.g. a non-numeric 'primary', could make
+        # _is_plausible itself raise, and that call used to sit OUTSIDE this try block, silently
+        # breaking this function's own documented "never propagate an exception" guarantee.
         elapsed = time.time() - t0
         return DebugResult(ok=False, reason=f"{type(e).__name__}: {e}", elapsed_s=elapsed)
     elapsed = time.time() - t0
 
-    ok, reason = _is_plausible(sample_metrics)
     if not ok:
         return DebugResult(ok=False, reason=reason, sample_metrics=sample_metrics, elapsed_s=elapsed)
 

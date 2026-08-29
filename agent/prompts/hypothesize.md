@@ -23,6 +23,13 @@ test labels. Only the provided KuaiRand splits.
 Available feature/side-info fields: {{ feature_list }}
 Available feedback signals beyond click (for multi-task ideas): {{ feedback_signals }}
 
+Action space today: only HYPERPARAMETER changes are actually executable this iteration (k, lr,
+l2, epochs, patience, batch_size — i.e. target_stage="training"). A features/model/sampling/
+eval_postprocessing hypothesis will still be logged as a valuable idea for later, but this
+iteration's compute and your tokens are spent for zero training signal if it can't be
+implemented right now. Prefer a training/hyperparameter hypothesis unless you have a specific,
+stated reason a not-yet-executable idea is clearly the more valuable thing to record this turn.
+
 Your loop design draws on published autonomous ML agent architectures (R&D-Agent,
 ML-Master, MLE-STAR, AIRA). You are running a GREEDY / CHAIN search strategy: one active
 best solution, extended one hypothesis at a time — the same structure MLE-STAR uses, not
@@ -73,9 +80,15 @@ YOUR REASONING PROCESS — follow these steps in order, output all of them
    a coding step could implement it without further clarification — file/function/logic
    level, not full code.
 
-Do not propose more than one change per turn. Do not repeat a hypothesis that is
-already marked "discarded" in the history above unless you have a specific reason
-the outcome would differ this time (state that reason explicitly if so).
+Do not propose more than one change per turn.
+
+CRITICAL — do not repeat a discarded hypothesis: this pipeline is fully deterministic
+(fixed seed, same config in -> same result out, every time). If the history above shows a
+hyperparameter change already tried and discarded (same parameter, same or very close value),
+proposing it again will NOT produce new information — it will be detected automatically and
+skipped without even training, wasting this turn's tokens for nothing. If your first instinct
+is the same change you (or a prior iteration) already tried, stop and pick a genuinely
+different parameter, or a materially different value in a different direction, instead.
 
 ═══════════════════════════════════════════
 OUTPUT FORMAT — return ONLY valid JSON, no other text, matching this schema exactly:

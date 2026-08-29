@@ -10,50 +10,12 @@ a first-class, expected outcome here, not a failure mode to be hidden or retried
 """
 import json
 import os
-import re
 
 from agent import llm_client
 from agent.action_space import HYPERPARAM_BOUNDS, validate_action
+from agent.prompt_utils import fill_template, load_template, parse_json
 
 PROMPT_PATH = os.path.join(os.path.dirname(__file__), 'prompts', 'code.md')
-
-_PLACEHOLDER_RE = re.compile(r"\{\{\s*(\w+)\s*\}\}")
-
-
-def _load_template(path=PROMPT_PATH):
-    with open(path, encoding='utf-8') as fh:
-        return fh.read()
-
-
-def _fill_template(template, mapping):
-    missing = []
-
-    def _sub(m):
-        key = m.group(1)
-        if key not in mapping:
-            missing.append(key)
-            return m.group(0)
-        return str(mapping[key])
-
-    filled = _PLACEHOLDER_RE.sub(_sub, template)
-    if missing:
-        raise KeyError(f"code.md referenced placeholders not supplied: {sorted(set(missing))}")
-    return filled
-
-
-def _strip_fences(text):
-    t = text.strip()
-    if t.startswith('```'):
-        t = re.sub(r'^```(?:json)?\s*', '', t)
-        t = re.sub(r'```\s*$', '', t)
-    return t.strip()
-
-
-def _parse(text):
-    try:
-        return json.loads(_strip_fences(text)), None
-    except json.JSONDecodeError as e:
-        return None, f"invalid JSON: {e}"
 
 
 def _validate(obj):
@@ -94,14 +56,14 @@ def propose_action(hypothesis, current_config, *, llm_call=llm_client.call, max_
     current_config: the config dict the candidate would start from (current-best's config, or a
     variant's DEFAULT_CONFIG at iteration 0).
     Returns a CodingResult. Same retry-once-on-invalid-response pattern as hypothesis_agent.py."""
-    template = _load_template(template_path)
-    system = _fill_template(template, {
+    template = load_template(template_path)
+    system = fill_template(template, {
         'target_stage': hypothesis['target_stage'],
         'statement': hypothesis['statement'],
         'reasoning': hypothesis['reasoning'],
         'implementation_sketch': hypothesis.get('implementation_sketch', ''),
         'current_config': json.dumps({k: current_config.get(k) for k in HYPERPARAM_BOUNDS}),
-    })
+    }, source_name='code.md')
     messages = [{'role': 'user', 'content': 'Produce the action for this hypothesis now.'}]
     total_usage = {'input_tokens': 0, 'output_tokens': 0}
 
@@ -114,7 +76,7 @@ def propose_action(hypothesis, current_config, *, llm_call=llm_client.call, max_
         total_usage['input_tokens'] += usage.get('input_tokens', 0)
         total_usage['output_tokens'] += usage.get('output_tokens', 0)
 
-        obj, err = _parse(text)
+        obj, err = parse_json(text)
         if err is None:
             err = _validate(obj)
         if err is None:

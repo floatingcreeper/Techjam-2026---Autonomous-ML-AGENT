@@ -34,12 +34,40 @@ from agent.config import CONVERGENCE_EPSILON, CONVERGENCE_N
 from agent.data_guard import load_train_valid
 from agent.debug_run import debug_run
 from agent.hypothesis_agent import build_state, propose
+from agent.llm_client import LLMError
 from models import fm_v0
+
+# Backoff schedule for a transient LLMError (Ollama unreachable/timed out) before giving up and
+# letting crash-safe resume (agent/resume.py) be the final safety net. Found live: a real Ollama
+# timeout after a long run of back-to-back heavy calls crashed the whole process — a network
+# hiccup is not the same class of failure as "the process died", and treating it that bluntly
+# means every transient timeout needs a human to notice and restart, which the "recovers from
+# failures instead of crashing" requirement is explicitly about avoiding.
+LLM_RETRY_DELAYS_S = (5, 15, 30)
+
+# How many recent REJECTED iterations to check for an exact duplicate resulting_config before
+# spending debug_run + full_run + reeval compute on it again. Found live: with a fixed seed and a
+# static current-best, this pipeline is fully deterministic — 3 consecutive real iterations
+# proposed the identical lr=0.01 change and got a bit-identical primary each time (see
+# AGENT_STRATEGY.md's Changelog). Re-running a config we already have the exact answer for is pure
+# waste, not a second data point.
+DUPLICATE_CHECK_WINDOW = 5
 
 
 def _add_usage(a, b):
     return {'input_tokens': a['input_tokens'] + b['input_tokens'],
             'output_tokens': a['output_tokens'] + b['output_tokens']}
+
+
+def _find_duplicate_config(config, history, window=DUPLICATE_CHECK_WINDOW):
+    """Returns the iteration number of the most recent REJECTED iteration whose resulting_config
+    exactly matches `config`, or None. Deliberately compares the FULL resulting config (not just
+    the raw action) — the same action applied on top of a DIFFERENT current-best would be a
+    genuinely different, worth-testing config, not a duplicate."""
+    for h in reversed(history[-window:]):
+        if not h.get('kept') and h.get('resulting_config') == config:
+            return h['iteration']
+    return None
 
 
 def run_iteration(data_dir, *, iteration_number, expected_total_iterations, current_best,
@@ -51,11 +79,11 @@ def run_iteration(data_dir, *, iteration_number, expected_total_iterations, curr
     token_cost = {'input_tokens': 0, 'output_tokens': 0}
     base_config = dict(current_best['config']) if current_best else dict(model.DEFAULT_CONFIG)
 
-    def _reject(proposal, code_diff, error_events):
+    def _reject(proposal, code_diff, error_events, resulting_config=None):
         record = logging_schema.new_record(
             iteration=iteration_number, proposal=proposal, code_diff=code_diff, metrics=None,
             error_events=error_events, token_cost=token_cost, wall_clock_s=time.time() - t0,
-            accepted=False)
+            accepted=False, resulting_config=resulting_config)
         return record, current_best
 
     # ---- Hypothesis ----
@@ -110,6 +138,24 @@ def run_iteration(data_dir, *, iteration_number, expected_total_iterations, curr
     if verbose:
         print(f"  [coding] {pseudo_diff}")
 
+    # ---- duplicate-config guard ----
+    # Found live: with a static current-best, the SAME action reproduces the SAME resulting
+    # config every time, and this pipeline is deterministic — re-running it wastes a full
+    # debug_run + full_run + reeval cycle to rediscover a bit-identical result we already have.
+    # Checked BEFORE debug_run, not after, so the skip is actually cheap.
+    dup_iter = _find_duplicate_config(new_config, history)
+    if dup_iter is not None:
+        reason = (f"Identical resulting config already tried and rejected in iteration "
+                  f"{dup_iter} — skipped without re-running training (this pipeline is "
+                  f"deterministic given a fixed seed, so re-running would reproduce the exact "
+                  f"same result, not new information).")
+        if verbose:
+            print(f"  [duplicate-guard] {reason}")
+        return _reject(proposal, pseudo_diff, [{'attempt': 1, 'error_text': None,
+                                                  'diagnosis': None, 'fixable': False,
+                                                  'fix_description': reason, 'repaired': False}],
+                       resulting_config=new_config)
+
     # ---- debug_run gate ----
     dbg = debug_run(model.train, splits, new_config, seed=seed)
     if verbose:
@@ -121,20 +167,34 @@ def run_iteration(data_dir, *, iteration_number, expected_total_iterations, curr
         ev = error_recovery.error_event(1, dbg.reason, rr)
         if verbose:
             print(f"  [error_recovery] {ev}")
-        return _reject(proposal, pseudo_diff, [ev])
+        return _reject(proposal, pseudo_diff, [ev], resulting_config=new_config)
 
-    # ---- full run ----
+    # ---- full run (+ reeval) ----
     if verbose:
         print(f"  [full_run] debug sample OK (~{dbg.estimated_full_runtime_s:.0f}s estimated), "
               f"starting ...")
-    full_metrics = model.train(splits, new_config, verbose=verbose)
-    orig_primary = full_metrics['valid']['primary']
-
-    # ---- reeval (strategy 4b) ----
-    cb_primary = current_best['primary'] if current_best else -1.0
-    accept, mean_primary, seed_primaries = reeval.recheck(
-        model.train, splits, new_config, original_primary=orig_primary,
-        current_best_primary=cb_primary)
+    try:
+        full_metrics = model.train(splits, new_config, verbose=verbose)
+        orig_primary = full_metrics['valid']['primary']
+        cb_primary = current_best['primary'] if current_best else -1.0
+        accept, mean_primary, seed_primaries = reeval.recheck(
+            model.train, splits, new_config, original_primary=orig_primary,
+            current_best_primary=cb_primary)
+    except Exception as e:  # noqa: BLE001 — found in code review: debug_run passing is NOT a
+        # full guarantee at real scale (its own docstring says so explicitly), and neither the
+        # full run nor reeval's extra-seed passes were wrapped, so a crash here used to propagate
+        # all the way out of run_loop and kill the whole process — directly violating "recovers
+        # from failures instead of crashing". Same repair-and-reject handling as a debug_run
+        # failure, just triggered by a real-scale-only failure instead of a sample-scale one.
+        error_message = f"{type(e).__name__}: {e}"
+        rr = error_recovery.repair(hypothesis_statement=hyp['statement'], code_diff=pseudo_diff,
+                                    error_message=error_message, attempt_number=1)
+        token_cost = _add_usage(token_cost, rr.usage)
+        ev = error_recovery.error_event(1, error_message, rr)
+        if verbose:
+            print(f"  [full_run] CRASHED: {error_message}")
+            print(f"  [error_recovery] {ev}")
+        return _reject(proposal, pseudo_diff, [ev], resulting_config=new_config)
     if verbose:
         print(f"  [reeval] seed_primaries={seed_primaries} mean={mean_primary:.4f} "
               f"accept={accept}")
@@ -142,7 +202,7 @@ def run_iteration(data_dir, *, iteration_number, expected_total_iterations, curr
     record = logging_schema.new_record(
         iteration=iteration_number, proposal=proposal, code_diff=pseudo_diff,
         metrics=full_metrics, error_events=[], token_cost=token_cost,
-        wall_clock_s=time.time() - t0, accepted=accept)
+        wall_clock_s=time.time() - t0, accepted=accept, resulting_config=new_config)
 
     if accept:
         new_best = {
@@ -154,6 +214,26 @@ def run_iteration(data_dir, *, iteration_number, expected_total_iterations, curr
         }
         return record, new_best
     return record, current_best
+
+
+def _run_iteration_with_retry(data_dir, *, verbose=True, **kwargs):
+    """Wraps run_iteration() with a short backoff-retry specifically for agent.llm_client.LLMError
+    — a transient infrastructure hiccup (Ollama unreachable/timed out), not a hypothesis-quality
+    problem, so it must not be logged as a rejected iteration or count against the model. If every
+    retry is also exhausted, re-raises — crash-safe resume is still the final fallback, just no
+    longer the first line of defense for something this recoverable."""
+    last_err = None
+    for attempt, delay in enumerate((0,) + LLM_RETRY_DELAYS_S, start=1):
+        if delay:
+            if verbose:
+                print(f"  [llm_client] transient failure ({last_err}), retrying in {delay}s "
+                      f"(attempt {attempt}/{len(LLM_RETRY_DELAYS_S) + 1}) ...")
+            time.sleep(delay)
+        try:
+            return run_iteration(data_dir, verbose=verbose, **kwargs)
+        except LLMError as e:
+            last_err = e
+    raise last_err
 
 
 def _load_history(log_path=archivist.LOG_PATH):
@@ -170,14 +250,21 @@ def _load_history(log_path=archivist.LOG_PATH):
 
 def _converged(history, n=CONVERGENCE_N, epsilon=CONVERGENCE_EPSILON):
     """Our interpretation of the convergence spec ("validation score hasn't improved by more than
-    epsilon over the last N iterations"): the best primary in the last N iterations must exceed
-    the best primary seen before that window by more than epsilon, or this is converged. Not
-    pinned down more precisely anywhere else in this repo's spec, so treat this as the working
-    definition until told otherwise."""
-    if len(history) < n:
+    epsilon over the last N iterations"): the best primary in the last N EXECUTED iterations must
+    exceed the best primary seen before that window by more than epsilon, or this is converged.
+
+    Filters to executed iterations only (h['executed'] — a real training run happened, metrics
+    exist) BEFORE applying the N/epsilon window — found live, this matters a lot: a hypothesis
+    rejected before training (not-implementable, guardrail-rejected, duplicate-skipped) is not
+    evidence the search is exhausted, and counting it the same as a real failed attempt caused
+    false convergence after essentially no real search (observed directly: converged at iteration
+    6 with only ONE iteration since the last accept — iter 2 — that had actually finished
+    training; the other three were rejected before ever reaching debug_run)."""
+    executed = [h for h in history if h.get('executed')]
+    if len(executed) < n:
         return False
-    best_before = max((h['primary'] for h in history[:-n]), default=-1.0)
-    recent_best = max(h['primary'] for h in history[-n:])
+    best_before = max((h['primary'] for h in executed[:-n]), default=-1.0)
+    recent_best = max(h['primary'] for h in executed[-n:])
     return recent_best <= best_before + epsilon
 
 
@@ -201,7 +288,7 @@ def run_loop(data_dir, *, expected_total_iterations, max_iterations=None, model=
     for it in range(start_iter, cap + 1):
         if verbose:
             print(f"=== iteration {it}/{cap} ===")
-        record, current_best = run_iteration(
+        record, current_best = _run_iteration_with_retry(
             data_dir, iteration_number=it, expected_total_iterations=expected_total_iterations,
             current_best=current_best, history=history, model=model, seed=seed, verbose=verbose)
         archivist.archive(record, current_best=current_best, log_path=log_path,
