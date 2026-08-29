@@ -1,0 +1,859 @@
+<title>Hypothesis Ledger</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #eef1ef;
+    --surface: #ffffff;
+    --surface-2: #e3e8e4;
+    --ink: #14201d;
+    --ink-muted: #55635e;
+    --ink-faint: #8b968f;
+    --border: #d3d9d5;
+    --accent: #b5651d;
+    --accent-soft: #f3e2d3;
+    --success: #2e7d5b;
+    --success-soft: #dceee4;
+    --fail: #b33a3a;
+    --fail-soft: #f6e1de;
+    --warn: #c08a2e;
+    --font-display: 'IBM Plex Sans', system-ui, sans-serif;
+    --font-body: 'IBM Plex Sans', system-ui, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #101513;
+      --surface: #171e1b;
+      --surface-2: #1e2622;
+      --ink: #e7ece9;
+      --ink-muted: #93a099;
+      --ink-faint: #66716b;
+      --border: #2a322d;
+      --accent: #e0812f;
+      --accent-soft: #3a2a18;
+      --success: #4caf7d;
+      --success-soft: #1b3327;
+      --fail: #e0605f;
+      --fail-soft: #3a1e1e;
+      --warn: #e0b04c;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #101513;
+    --surface: #171e1b;
+    --surface-2: #1e2622;
+    --ink: #e7ece9;
+    --ink-muted: #93a099;
+    --ink-faint: #66716b;
+    --border: #2a322d;
+    --accent: #e0812f;
+    --accent-soft: #3a2a18;
+    --success: #4caf7d;
+    --success-soft: #1b3327;
+    --fail: #e0605f;
+    --fail-soft: #3a1e1e;
+    --warn: #e0b04c;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+
+  header.page-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 1.1rem;
+    margin-bottom: 2rem;
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(1.7rem, 3vw, 2.35rem);
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+    margin: 0 0 0.3rem;
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .subtitle { color: var(--ink-muted); font-size: 0.94rem; max-width: 46ch; margin-top: 0.35rem; }
+  .source-line { font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink-faint); }
+
+  button, .file-label {
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 0.85rem;
+    border: 1.5px solid var(--ink);
+    background: var(--ink);
+    color: var(--bg);
+    padding: 0.55rem 1.1rem;
+    border-radius: 3px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: transform 0.12s ease, opacity 0.12s ease;
+  }
+  button:hover, .file-label:hover { opacity: 0.85; }
+  button:active, .file-label:active { transform: translateY(1px); }
+  button:focus-visible, .file-label:focus-visible, input:focus-visible, details summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  input[type="file"] { display: none; }
+
+  /* ---- empty state / drop zone ---- */
+  #dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    padding: 4rem 2rem;
+    text-align: center;
+    color: var(--ink-muted);
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  #dropzone.drag { border-color: var(--accent); background: var(--accent-soft); }
+  #dropzone p { margin: 0 0 1.1rem; }
+  #dropzone .hint { font-size: 0.82rem; color: var(--ink-faint); margin-top: 1rem; }
+  #dropzone code { font-family: var(--font-mono); background: var(--surface-2); padding: 0.1rem 0.4rem; border-radius: 3px; }
+  #parseWarning { color: var(--fail); font-size: 0.82rem; margin-top: 0.9rem; font-family: var(--font-mono); }
+
+  #dashboard { display: none; }
+  #dashboard.visible { display: block; }
+
+  .toolbar {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 1.6rem; flex-wrap: wrap; gap: 0.75rem;
+  }
+  .toolbar .file-label { padding: 0.45rem 0.9rem; font-size: 0.78rem; }
+
+  /* ---- KPI cards ---- */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 1.75rem;
+  }
+  .kpi {
+    background: var(--surface);
+    padding: 1.1rem 1.25rem;
+  }
+  .kpi .label {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 0.45rem;
+  }
+  .kpi .value {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 1.55rem;
+    font-weight: 600;
+    line-height: 1.1;
+  }
+  .kpi .sub { font-size: 0.78rem; color: var(--ink-muted); margin-top: 0.3rem; }
+  .kpi .bar-track {
+    height: 5px; background: var(--surface-2); border-radius: 3px; margin-top: 0.55rem; overflow: hidden;
+  }
+  .kpi .bar-fill { height: 100%; background: var(--accent); border-radius: 3px; }
+  .kpi .budget-edit {
+    font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink-muted);
+    background: none; border: none; border-bottom: 1px dotted var(--ink-faint);
+    width: 3.4em; padding: 0; text-align: right;
+  }
+
+  /* ---- charts ---- */
+  .chart-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
+    gap: 1.1rem;
+    margin-bottom: 2.2rem;
+  }
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.2rem 1.3rem 1rem;
+  }
+  .chart-card h3 {
+    font-family: var(--font-display);
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 0 0 0.15rem;
+  }
+  .chart-card .chart-note { font-size: 0.76rem; color: var(--ink-faint); margin-bottom: 0.7rem; }
+  .chart-card .canvas-wrap { position: relative; height: 230px; }
+
+  /* ---- ledger list ---- */
+  h2.section-head {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 0 0 0.15rem;
+  }
+  .section-note { font-size: 0.8rem; color: var(--ink-muted); margin-bottom: 1rem; }
+
+  details.iter-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--ink-faint);
+    border-radius: 6px;
+    margin-bottom: 0.55rem;
+  }
+  details.iter-card[data-status="ok"] { border-left-color: var(--success); }
+  details.iter-card[data-status="failed"] { border-left-color: var(--fail); }
+
+  details.iter-card summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 0.85rem 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    flex-wrap: wrap;
+  }
+  details.iter-card summary::-webkit-details-marker { display: none; }
+  details.iter-card summary .caret {
+    font-family: var(--font-mono); color: var(--ink-faint); transition: transform 0.15s ease; flex-shrink: 0;
+  }
+  details.iter-card[open] summary .caret { transform: rotate(90deg); }
+
+  .iter-num { font-family: var(--font-mono); font-weight: 600; color: var(--ink-muted); min-width: 3ch; flex-shrink: 0; }
+  .pill {
+    font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600; letter-spacing: 0.04em;
+    text-transform: uppercase; padding: 0.18rem 0.5rem; border-radius: 3px; flex-shrink: 0;
+  }
+  .pill.ok { background: var(--success-soft); color: var(--success); }
+  .pill.failed { background: var(--fail-soft); color: var(--fail); }
+  .pill.best { background: var(--accent-soft); color: var(--accent); }
+  .badge {
+    font-family: var(--font-mono); font-size: 0.72rem; color: var(--ink-muted);
+    background: var(--surface-2); padding: 0.15rem 0.5rem; border-radius: 3px; flex-shrink: 0;
+  }
+  .hyp-preview {
+    flex: 1 1 260px; min-width: 0; font-size: 0.86rem; color: var(--ink);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .summary-metrics {
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 0.82rem;
+    color: var(--ink-muted); display: flex; gap: 0.9rem; flex-shrink: 0;
+  }
+  .summary-metrics b { color: var(--ink); font-weight: 600; }
+
+  .iter-body { padding: 0 1.1rem 1.1rem 1.1rem; border-top: 1px solid var(--border); margin-top: 0.1rem; }
+  .iter-body .hyp-full { font-size: 0.92rem; padding: 0.9rem 0; max-width: 72ch; }
+  .metric-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 0.8rem; margin-bottom: 0.6rem; }
+  .metric-table th { text-align: left; color: var(--ink-faint); font-weight: 500; padding: 0.3rem 0.8rem 0.3rem 0; text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.06em; }
+  .metric-table td { padding: 0.3rem 0.8rem 0.3rem 0; font-variant-numeric: tabular-nums; }
+  .error-box {
+    font-family: var(--font-mono); font-size: 0.78rem; background: var(--fail-soft); color: var(--fail);
+    padding: 0.75rem 0.9rem; border-radius: 5px; overflow-x: auto; white-space: pre-wrap; max-height: 220px; overflow-y: auto;
+  }
+  .meta-strip { display: flex; gap: 1.1rem; flex-wrap: wrap; font-size: 0.78rem; color: var(--ink-muted); margin-top: 0.6rem; font-family: var(--font-mono); }
+
+  .table-scroll { overflow-x: auto; margin-bottom: 2rem; }
+  table.metrics-full {
+    width: 100%; min-width: 720px; border-collapse: collapse;
+    font-family: var(--font-mono); font-size: 0.82rem; font-variant-numeric: tabular-nums;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+  }
+  table.metrics-full caption { display: none; }
+  table.metrics-full th, table.metrics-full td { padding: 0.55rem 0.85rem; text-align: right; border-bottom: 1px solid var(--border); }
+  table.metrics-full th:first-child, table.metrics-full td:first-child,
+  table.metrics-full th:nth-child(2), table.metrics-full td:nth-child(2) { text-align: left; }
+  table.metrics-full thead th {
+    font-size: 0.66rem; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-faint); font-weight: 500;
+    background: var(--surface-2); border-bottom: 1px solid var(--border);
+  }
+  table.metrics-full thead tr.group-row th {
+    text-align: center; color: var(--ink-muted); font-weight: 600; border-bottom: none;
+    padding-bottom: 0.2rem;
+  }
+  table.metrics-full tbody tr:last-child td { border-bottom: none; }
+  table.metrics-full tbody tr:hover { background: var(--surface-2); }
+  table.metrics-full tbody tr[data-status="failed"] td { color: var(--ink-faint); }
+  table.metrics-full td.best-cell { color: var(--accent); font-weight: 600; }
+  table.metrics-full .col-split { border-left: 1px solid var(--border); }
+
+  footer.note {
+    margin-top: 2.5rem; font-size: 0.78rem; color: var(--ink-faint); border-top: 1px solid var(--border); padding-top: 1rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+
+<div class="wrap">
+  <header class="page-head">
+    <div>
+      <div class="eyebrow">agent-recsys &middot; KuaiRand-Pure</div>
+      <h1>Hypothesis Ledger</h1>
+      <div class="subtitle">Every hypothesis the agent tried, whether it ran, and what it did to validation primary.</div>
+    </div>
+    <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.5rem;">
+      <div style="display:flex; gap:0.6rem;">
+        <button id="connectBtn" type="button" style="display:none">Connect &amp; auto-reload</button>
+        <button id="reloadBtn" type="button" style="display:none">&#8635; Reload</button>
+      </div>
+      <div class="source-line" id="sourceLine"></div>
+    </div>
+  </header>
+
+  <div id="reloadNote" class="hint" style="margin:-1.2rem 0 1.5rem; text-align:right;"></div>
+
+  <div id="dropzone">
+    <p><strong>Drop <code>iteration_log.jsonl</code> here</strong>, or choose the file below.</p>
+    <label class="file-label" for="fileInput">Load log file</label>
+    <input type="file" id="fileInput" accept=".jsonl,.json,.log,.txt">
+    <div class="hint">Runs entirely in this page &mdash; the file is read locally and never leaves your browser.</div>
+    <div class="hint">Found at <code>agent-recsys/logs/iteration_log.jsonl</code> after a run.</div>
+    <div class="hint" id="fsaHint" style="display:none">Or use <strong>Connect &amp; auto-reload</strong> above to pick the file once and reload it with one click from then on.</div>
+    <div id="parseWarning"></div>
+  </div>
+
+  <div id="dashboard">
+    <div class="toolbar">
+      <div class="section-note" id="loadedNote"></div>
+      <label class="file-label" for="fileInput2">Choose different file</label>
+      <input type="file" id="fileInput2" accept=".jsonl,.json,.log,.txt">
+    </div>
+
+    <div class="kpi-row" id="kpiRow"></div>
+
+    <div id="chartsError" class="error-box" style="display:none; margin-bottom:1.1rem;"></div>
+
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>Validation primary, by iteration</h3>
+        <div class="chart-note">mean(GAUC, nDCG@5) &middot; gaps mark failed iterations</div>
+        <div class="canvas-wrap"><canvas id="primaryChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Ranking quality components</h3>
+        <div class="chart-note">GAUC vs nDCG@5, validation split</div>
+        <div class="canvas-wrap"><canvas id="componentChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Spend per iteration</h3>
+        <div class="chart-note">Claude Sonnet 5 pricing: $2 / $10 per MTok in / out (estimate)</div>
+        <div class="canvas-wrap"><canvas id="costChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Wall-clock per iteration</h3>
+        <div class="chart-note">colored by outcome</div>
+        <div class="canvas-wrap"><canvas id="walltimeChart"></canvas></div>
+      </div>
+    </div>
+
+    <h2 class="section-head">Metrics table</h2>
+    <div class="section-note">Every valid/test GAUC, nDCG@5 and primary score, in one place.</div>
+    <div class="table-scroll">
+      <table class="metrics-full" id="metricsTable"></table>
+    </div>
+
+    <h2 class="section-head">Iteration log</h2>
+    <div class="section-note">Click a row to read the full hypothesis and, on a failure, the error.</div>
+    <div id="iterList"></div>
+  </div>
+
+  <footer class="note">
+    Cost figures are an estimate from token counts logged per iteration, at Claude Sonnet 5's published rate ($2/MTok input, $10/MTok output). Actual billed cost may differ slightly.
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var PRICE_IN = 2, PRICE_OUT = 10; // $ per million tokens, Claude Sonnet 5
+  var records = [];
+  var charts = {};
+  var multiRun = false;
+
+  // Iteration numbers reset to 0 on every separate run_agent.py launch, so
+  // once we've detected more than one run in the file, disambiguate with
+  // the run number; otherwise keep it as plain "iteration N".
+  function dispLabel(r) {
+    return multiRun ? ("r" + r.__run + "·" + r.iteration) : String(r.iteration);
+  }
+  function dispIterText(r) {
+    return multiRun ? ("iteration " + r.iteration + " (run " + r.__run + ")") : ("iteration " + r.iteration);
+  }
+
+  function tok(r) { return (r.resource_usage || {}); }
+  function iterCost(r) {
+    var t = tok(r);
+    return ((t.llm_input_tokens || 0) / 1e6) * PRICE_IN + ((t.llm_output_tokens || 0) / 1e6) * PRICE_OUT;
+  }
+  function fmt(n, d) { return (typeof n === "number" && !isNaN(n)) ? n.toFixed(d == null ? 4 : d) : "—"; }
+  function fmtMoney(n) { return "$" + n.toFixed(2); }
+  function fmtHours(sec) {
+    var h = Math.floor(sec / 3600), m = Math.round((sec % 3600) / 60);
+    return h > 0 ? (h + "h " + m + "m") : (m + "m");
+  }
+  function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+  // ---------- parsing ----------
+  function parseJSONL(text) {
+    var lines = text.split(/\r?\n/), out = [], errors = 0;
+    for (var i = 0; i < lines.length; i++) {
+      var t = lines[i].trim();
+      if (!t) continue;
+      try { out.push(JSON.parse(t)); } catch (e) { errors++; }
+    }
+    return { records: out, errors: errors };
+  }
+
+  function loadText(text, filename) {
+    var parsed = parseJSONL(text);
+    var warn = document.getElementById("parseWarning");
+    if (parsed.records.length === 0) {
+      warn.textContent = "Couldn't find any valid JSON lines in that file. Expecting agent-recsys/logs/iteration_log.jsonl.";
+      return;
+    }
+    warn.textContent = parsed.errors > 0 ? ("Skipped " + parsed.errors + " unreadable line(s).") : "";
+    // Sort by timestamp (ISO strings sort correctly as text), not by the
+    // `iteration` field: run_agent.py restarts its counter at 0 on every
+    // launch, so the same log file commonly holds several runs appended
+    // back to back -- sorting by iteration value would scramble a file
+    // that already reads correctly top to bottom.
+    records = parsed.records
+      .map(function (r, idx) { r.__idx = idx; return r; })
+      .sort(function (a, b) {
+        var ta = a.timestamp || "", tb = b.timestamp || "";
+        if (ta !== tb) return ta < tb ? -1 : 1;
+        return a.__idx - b.__idx;
+      });
+    // Detect run boundaries (iteration counter resets to <= the previous
+    // value) so charts/labels can disambiguate "iteration 0" appearing
+    // more than once instead of implying the count went backward.
+    var run = 1, prevIter = -Infinity;
+    records.forEach(function (r) {
+      if (r.iteration <= prevIter) run++;
+      prevIter = r.iteration;
+      r.__run = run;
+    });
+    multiRun = run > 1;
+    document.getElementById("sourceLine").textContent = filename ? ("source: " + filename) : "";
+    document.getElementById("loadedNote").textContent =
+      records.length + " iteration" + (records.length === 1 ? "" : "s") + " loaded" + (filename ? " from " + filename : "") + ".";
+    render();
+    document.getElementById("dashboard").classList.add("visible");
+    document.getElementById("dropzone").style.display = "none";
+  }
+
+  function handleFile(file) {
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function (e) { loadText(e.target.result, file.name); };
+    reader.readAsText(file);
+  }
+
+  // ---------- live file handle: connect once, then re-read the same file on
+  // disk with no picker dialog. Browsers refuse to let a page read an
+  // arbitrary local path with zero user interaction (that would let any
+  // website snoop your filesystem), so a literal hard-coded path that loads
+  // with no click at all isn't something a normal page can do. The closest
+  // real equivalent, supported in Chromium-based browsers, is the File
+  // System Access API: pick the file once, and every "Reload" click after
+  // that re-reads its current contents with no dialog. The connection is
+  // also remembered in this page's own local IndexedDB, so reopening the
+  // file later resumes it (Chromium may ask you to reconfirm read access
+  // once per browser restart -- that's the browser's permission model, not
+  // this page holding anything back).
+  var fileHandle = null;
+  var fsAccessSupported = typeof window.showOpenFilePicker === "function";
+  var IDB_NAME = "hypothesis-ledger", IDB_STORE = "handles", IDB_KEY = "logFile";
+
+  function idbOpen() {
+    return new Promise(function (resolve, reject) {
+      var req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = function () { req.result.createObjectStore(IDB_STORE); };
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { reject(req.error); };
+    });
+  }
+  function idbSaveHandle(handle) {
+    return idbOpen().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var tx = db.transaction(IDB_STORE, "readwrite");
+        tx.objectStore(IDB_STORE).put(handle, IDB_KEY);
+        tx.oncomplete = resolve; tx.onerror = function () { reject(tx.error); };
+      });
+    }).catch(function () {});
+  }
+  function idbLoadHandle() {
+    return idbOpen().then(function (db) {
+      return new Promise(function (resolve) {
+        var tx = db.transaction(IDB_STORE, "readonly");
+        var req = tx.objectStore(IDB_STORE).get(IDB_KEY);
+        req.onsuccess = function () { resolve(req.result || null); };
+        req.onerror = function () { resolve(null); };
+      });
+    }).catch(function () { return null; });
+  }
+
+  function setConnectedUI(connected) {
+    document.getElementById("reloadBtn").style.display = connected ? "inline-flex" : "none";
+  }
+
+  function readHandle(handle) {
+    return handle.getFile().then(function (file) {
+      return file.text().then(function (text) {
+        fileHandle = handle;
+        setConnectedUI(true);
+        loadText(text, file.name);
+      });
+    });
+  }
+
+  function connectFile() {
+    if (!fsAccessSupported) return;
+    window.showOpenFilePicker({
+      types: [{ description: "iteration log", accept: { "text/plain": [".jsonl", ".json", ".log", ".txt"] } }],
+      excludeAcceptAllOption: false
+    }).then(function (handles) {
+      return readHandle(handles[0]).then(function () { idbSaveHandle(handles[0]); });
+    }).catch(function () { /* user cancelled the picker */ });
+  }
+
+  function reloadFile() {
+    if (!fileHandle) return;
+    var note = document.getElementById("reloadNote");
+    fileHandle.queryPermission({ mode: "read" }).then(function (perm) {
+      if (perm === "granted") return "granted";
+      return fileHandle.requestPermission({ mode: "read" });
+    }).then(function (perm) {
+      if (perm !== "granted") { note.textContent = "Permission to re-read the file wasn't granted — click Connect again."; return; }
+      note.textContent = "";
+      return readHandle(fileHandle);
+    }).catch(function (e) {
+      note.textContent = "Couldn't reload (" + e.message + ") — the file may have moved. Click Connect to reselect it.";
+    });
+  }
+
+  document.getElementById("connectBtn").addEventListener("click", connectFile);
+  document.getElementById("reloadBtn").addEventListener("click", reloadFile);
+
+  if (fsAccessSupported) {
+    document.getElementById("connectBtn").style.display = "inline-flex";
+    document.getElementById("fsaHint").style.display = "block";
+    idbLoadHandle().then(function (handle) {
+      if (!handle) return;
+      return handle.queryPermission({ mode: "read" }).then(function (perm) {
+        if (perm === "granted") {
+          return readHandle(handle).then(function () {
+            document.getElementById("reloadNote").textContent = "Auto-loaded from the last connected file. Click Reload after rerunning the agent.";
+          });
+        }
+        fileHandle = handle;
+        setConnectedUI(true);
+        document.getElementById("reloadNote").textContent = "Previously connected to a log file — click Reload to resume (your browser needs to reconfirm access).";
+      });
+    }).catch(function () { /* stale/missing handle: ignore, user can Connect again */ });
+  }
+
+  ["fileInput", "fileInput2"].forEach(function (id) {
+    document.getElementById(id).addEventListener("change", function (e) { handleFile(e.target.files[0]); });
+  });
+
+  var dz = document.getElementById("dropzone");
+  ["dragenter", "dragover"].forEach(function (evt) {
+    dz.addEventListener(evt, function (e) { e.preventDefault(); dz.classList.add("drag"); });
+  });
+  ["dragleave", "drop"].forEach(function (evt) {
+    dz.addEventListener(evt, function (e) { e.preventDefault(); dz.classList.remove("drag"); });
+  });
+  dz.addEventListener("drop", function (e) {
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  });
+  document.body.addEventListener("dragover", function (e) { e.preventDefault(); });
+  document.body.addEventListener("drop", function (e) {
+    e.preventDefault();
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  });
+
+  // ---------- budget preference (local convenience only) ----------
+  function getBudget() {
+    try {
+      var v = localStorage.getItem("hl_budget");
+      return v ? parseFloat(v) : 5;
+    } catch (e) { return 5; }
+  }
+  function setBudget(v) {
+    try { localStorage.setItem("hl_budget", String(v)); } catch (e) {}
+  }
+
+  // ---------- rendering ----------
+  function render() {
+    renderKPIs();
+    renderCharts();
+    renderMetricsTable();
+    renderList();
+  }
+
+  function renderMetricsTable() {
+    var best = null;
+    records.forEach(function (r) {
+      var p = r.status === "ok" && r.metrics ? r.metrics.valid.primary : null;
+      if (typeof p === "number" && (!best || p > best.metrics.valid.primary)) best = r;
+    });
+    function cell(v, isBest) {
+      return "<td" + (isBest ? ' class="best-cell"' : "") + ">" + fmt(v) + "</td>";
+    }
+    var rows = records.slice().reverse().map(function (r) {
+      var ok = r.status === "ok", m = r.metrics;
+      var isBest = !!(best && r === best);
+      return (
+        '<tr data-status="' + r.status + '">' +
+        "<td>" + dispLabel(r) + "</td>" +
+        '<td><span class="pill ' + (ok ? "ok" : "failed") + '" style="padding:0.1rem 0.4rem;">' + (ok ? "ok" : "fail") + "</span></td>" +
+        cell(ok ? m.valid.GAUC : null) +
+        cell(ok ? m.valid["nDCG@5"] : null) +
+        cell(ok ? m.valid.primary : null, isBest) +
+        cell(ok ? m.test.GAUC : null) +
+        cell(ok ? m.test["nDCG@5"] : null) +
+        cell(ok ? m.test.primary : null) +
+        "</tr>"
+      );
+    }).join("");
+    document.getElementById("metricsTable").innerHTML =
+      "<thead>" +
+      '<tr class="group-row"><th></th><th></th><th colspan="3">Validation</th><th colspan="3" class="col-split">Test</th></tr>' +
+      '<tr><th>Iter</th><th>Status</th><th>GAUC</th><th>nDCG@5</th><th>Primary</th>' +
+      '<th class="col-split">GAUC</th><th>nDCG@5</th><th>Primary</th></tr>' +
+      "</thead><tbody>" + rows + "</tbody>";
+  }
+
+  function renderKPIs() {
+    var ok = records.filter(function (r) { return r.status === "ok"; });
+    var failed = records.filter(function (r) { return r.status === "failed"; });
+    var best = null;
+    ok.forEach(function (r) {
+      var p = r.metrics && r.metrics.valid && r.metrics.valid.primary;
+      if (typeof p === "number" && (!best || p > best.metrics.valid.primary)) best = r;
+    });
+    var totalWall = records.reduce(function (s, r) { return s + (r.wall_clock_s || 0); }, 0);
+    var totalCost = records.reduce(function (s, r) { return s + iterCost(r); }, 0);
+    var budget = getBudget();
+    var wallPct = Math.min(100, (totalWall / (6 * 3600)) * 100);
+    var costPct = Math.min(100, (totalCost / budget) * 100);
+    var iterPct = Math.min(100, (records.length / 50) * 100);
+
+    var row = document.getElementById("kpiRow");
+    row.innerHTML =
+      '<div class="kpi">' +
+        '<div class="label">Iterations run</div>' +
+        '<div class="value">' + records.length + ' <span style="font-size:0.9rem;color:var(--ink-faint)">/ 50</span></div>' +
+        '<div class="sub">' + ok.length + ' ok &middot; ' + failed.length + ' failed</div>' +
+        '<div class="bar-track"><div class="bar-fill" style="width:' + iterPct + '%"></div></div>' +
+      '</div>' +
+      '<div class="kpi">' +
+        '<div class="label">Best validation primary</div>' +
+        '<div class="value">' + (best ? fmt(best.metrics.valid.primary) : '—') + '</div>' +
+        '<div class="sub">' + (best ? dispIterText(best) : 'no successful iteration yet') + '</div>' +
+      '</div>' +
+      '<div class="kpi">' +
+        '<div class="label">Wall-clock used</div>' +
+        '<div class="value">' + fmtHours(totalWall) + '</div>' +
+        '<div class="sub">of 6h budget</div>' +
+        '<div class="bar-track"><div class="bar-fill" style="width:' + wallPct + '%"></div></div>' +
+      '</div>' +
+      '<div class="kpi">' +
+        '<div class="label">Est. spend</div>' +
+        '<div class="value">' + fmtMoney(totalCost) + '</div>' +
+        '<div class="sub">of $<input class="budget-edit" id="budgetInput" type="number" min="0" step="0.5" value="' + budget + '"> budget</div>' +
+        '<div class="bar-track"><div class="bar-fill" style="width:' + costPct + '%; background:' + (costPct > 90 ? 'var(--fail)' : 'var(--accent)') + '"></div></div>' +
+      '</div>';
+
+    var bi = document.getElementById("budgetInput");
+    if (bi) bi.addEventListener("change", function () {
+      var v = parseFloat(bi.value) || 5;
+      setBudget(v);
+      renderKPIs();
+    });
+  }
+
+  function destroyCharts() {
+    Object.keys(charts).forEach(function (k) { if (charts[k]) charts[k].destroy(); });
+    charts = {};
+  }
+
+  function renderCharts() {
+    var errBox = document.getElementById("chartsError");
+    if (typeof Chart === "undefined") {
+      errBox.style.display = "block";
+      errBox.textContent = "Charts didn't load (this page needs internet access to cdnjs.cloudflare.com the first time, to fetch the charting library). The metrics table and iteration log below don't need it and still work fully.";
+      return;
+    }
+    errBox.style.display = "none";
+    destroyCharts();
+
+    var ink = cssVar("--ink");
+    var inkMuted = cssVar("--ink-muted");
+    var border = cssVar("--border");
+    var accent = cssVar("--accent");
+    var success = cssVar("--success");
+    var fail = cssVar("--fail");
+
+    Chart.defaults.font.family = "'IBM Plex Mono', ui-monospace, monospace";
+    Chart.defaults.font.size = 11;
+    Chart.defaults.color = inkMuted;
+
+    var labels = records.map(dispLabel);
+    var validPrimary = records.map(function (r) { return (r.status === "ok" && r.metrics) ? r.metrics.valid.primary : null; });
+    var testPrimary = records.map(function (r) { return (r.status === "ok" && r.metrics) ? r.metrics.test.primary : null; });
+    var gauc = records.map(function (r) { return (r.status === "ok" && r.metrics) ? r.metrics.valid.GAUC : null; });
+    var ndcg = records.map(function (r) { return (r.status === "ok" && r.metrics) ? r.metrics.valid["nDCG@5"] : null; });
+    var cost = records.map(function (r) { return iterCost(r); });
+    var cumCost = [];
+    cost.reduce(function (acc, c, i) { cumCost[i] = acc + c; return acc + c; }, 0);
+    var wall = records.map(function (r) { return r.wall_clock_s || 0; });
+    var wallColor = records.map(function (r) { return r.status === "ok" ? success : fail; });
+
+    var gridOpts = { color: border, drawTicks: false };
+    var xOpts = { title: { display: true, text: "iteration", color: inkMuted }, grid: { display: false }, ticks: { color: inkMuted } };
+
+    charts.primary = new Chart(document.getElementById("primaryChart"), {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [
+          { label: "valid", data: validPrimary, borderColor: accent, backgroundColor: accent, spanGaps: false, tension: 0.25, pointRadius: 3, pointHoverRadius: 5 },
+          { label: "test", data: testPrimary, borderColor: inkMuted, backgroundColor: inkMuted, borderDash: [4, 3], spanGaps: false, tension: 0.25, pointRadius: 2 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: ink, boxWidth: 12 } } },
+        scales: { x: xOpts, y: { grid: gridOpts, ticks: { color: inkMuted } } }
+      }
+    });
+
+    charts.component = new Chart(document.getElementById("componentChart"), {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [
+          { label: "GAUC", data: gauc, borderColor: accent, backgroundColor: accent, spanGaps: false, tension: 0.25, pointRadius: 3 },
+          { label: "nDCG@5", data: ndcg, borderColor: success, backgroundColor: success, spanGaps: false, tension: 0.25, pointRadius: 3 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: ink, boxWidth: 12 } } },
+        scales: { x: xOpts, y: { grid: gridOpts, ticks: { color: inkMuted } } }
+      }
+    });
+
+    charts.cost = new Chart(document.getElementById("costChart"), {
+      data: {
+        labels: labels,
+        datasets: [
+          { type: "bar", label: "per-iteration ($)", data: cost, backgroundColor: accent, yAxisID: "y" },
+          { type: "line", label: "cumulative ($)", data: cumCost, borderColor: ink, backgroundColor: ink, yAxisID: "y1", tension: 0.15, pointRadius: 2 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: ink, boxWidth: 12 } } },
+        scales: {
+          x: xOpts,
+          y: { position: "left", grid: gridOpts, ticks: { color: inkMuted, callback: function (v) { return "$" + v.toFixed(2); } } },
+          y1: { position: "right", grid: { display: false }, ticks: { color: inkMuted, callback: function (v) { return "$" + v.toFixed(2); } } }
+        }
+      }
+    });
+
+    charts.walltime = new Chart(document.getElementById("walltimeChart"), {
+      type: "bar",
+      data: { labels: labels, datasets: [{ label: "wall-clock (s)", data: wall, backgroundColor: wallColor }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { x: xOpts, y: { grid: gridOpts, ticks: { color: inkMuted } } }
+      }
+    });
+  }
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function renderList() {
+    var list = document.getElementById("iterList");
+    var html = records.slice().reverse().map(function (r) {
+      var ok = r.status === "ok";
+      var m = r.metrics;
+      var previewMetric = ok ? ('<span class="summary-metrics"><span>valid <b>' + fmt(m.valid.primary) + '</b></span><span>test <b>' + fmt(m.test.primary) + '</b></span></span>') : "";
+      var body = "";
+      if (ok) {
+        body =
+          '<div class="hyp-full">' + esc(r.hypothesis) + '</div>' +
+          '<table class="metric-table"><thead><tr><th></th><th>GAUC</th><th>nDCG@5</th><th>primary</th></tr></thead><tbody>' +
+          '<tr><td>valid</td><td>' + fmt(m.valid.GAUC) + '</td><td>' + fmt(m.valid["nDCG@5"]) + '</td><td>' + fmt(m.valid.primary) + '</td></tr>' +
+          '<tr><td>test</td><td>' + fmt(m.test.GAUC) + '</td><td>' + fmt(m.test["nDCG@5"]) + '</td><td>' + fmt(m.test.primary) + '</td></tr>' +
+          '</tbody></table>';
+      } else {
+        body =
+          '<div class="hyp-full">' + esc(r.hypothesis) + '</div>' +
+          (r.final_error ? '<div class="error-box">' + esc(r.final_error) + '</div>' : '');
+      }
+      var t = tok(r);
+      var meta = '<div class="meta-strip">' +
+        '<span>' + esc(r.target_stage || "n/a") + ' &middot; ' + esc(r.target_file || "n/a") + '</span>' +
+        '<span>' + fmt(r.wall_clock_s, 1) + 's</span>' +
+        '<span>' + ((t.llm_input_tokens || 0) + (t.llm_output_tokens || 0)).toLocaleString() + ' tok</span>' +
+        '<span>' + fmtMoney(iterCost(r)) + '</span>' +
+        (r.repair_attempts ? ('<span>' + r.repair_attempts + ' repair attempt(s)</span>') : '') +
+        '</div>';
+
+      return (
+        '<details class="iter-card" data-status="' + r.status + '">' +
+          '<summary>' +
+            '<span class="caret">&#9656;</span>' +
+            '<span class="iter-num" title="' + esc(dispIterText(r)) + '">#' + dispLabel(r) + '</span>' +
+            '<span class="pill ' + (ok ? 'ok' : 'failed') + '">' + (ok ? "ok" : "failed") + '</span>' +
+            (r.new_best ? '<span class="pill best">best</span>' : '') +
+            '<span class="badge">' + esc(r.target_file || "n/a") + '</span>' +
+            '<span class="hyp-preview">' + esc(r.hypothesis || "") + '</span>' +
+            previewMetric +
+          '</summary>' +
+          '<div class="iter-body">' + body + meta + '</div>' +
+        '</details>'
+      );
+    }).join("");
+    list.innerHTML = html;
+  }
+
+  if (window.matchMedia) {
+    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () {
+      if (records.length) renderCharts();
+    });
+  }
+})();
+</script>
