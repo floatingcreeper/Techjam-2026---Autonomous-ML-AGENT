@@ -4,6 +4,9 @@
   --model random: 随机打分（下界，用来自检评测代码没坏）
 只依赖 numpy。用法见 README.md
 """
+
+# This is a commit
+
 import argparse, collections, time
 import numpy as np
 from data import load, encode, FIELDS
