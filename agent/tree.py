@@ -13,6 +13,7 @@ class Node:
     block_dir: str
     lever: str = ""
     hypothesis: str = ""
+    problem: str = ""                 # 1B: the Proposer's problem_identified diagnosis for this node
     metrics: dict | None = None       # {GAUC, nDCG@5, primary_valid, primary_unbiased}
     status: str = "pending"           # root | improved | no_gain | failed | abandoned
 

@@ -14,6 +14,8 @@ def build_loss(cfg):
 
 
 def _H(**kw):
+    # problem_identified is a required Hypothesis field (1B); scripted moves auto-fill it.
+    kw.setdefault("problem_identified", "(scripted mock move -- see tests/mock_moves.py)")
     return Hypothesis(**kw)
 
 

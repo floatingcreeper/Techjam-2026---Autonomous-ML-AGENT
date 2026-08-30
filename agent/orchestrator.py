@@ -37,20 +37,32 @@ def _converged(best_series, eps, N):
 
 
 # ------------------------------------------------------------------ context
+def _budget_tier(it, maxit):
+    """1C: an explore->exploit directive keyed to how far through the budget we are."""
+    frac = it / max(1, maxit)
+    if frac < 0.40:
+        return "EARLY (<40% budget): prioritise cheap, fast, NOVEL directions -- maximise breadth."
+    if frac < 0.75:
+        return "MID (40-75%): refine and COMBINE the strongest directions found so far."
+    return "LATE (>75%): squeeze remaining gains; ensembling/blending is encouraged."
+
+
 def build_proposer_context(tree, mem, phase, it, budget_left):
     best = tree.best()
+    t = mem.research_table()                                  # 1A: synthesized scientific state
     lines = [
         f"Phase {phase}, iteration {it}, {budget_left} iterations of budget left.",
+        f"STRATEGY: {_budget_tier(it, it + budget_left)}",    # 1C
         f"FM baseline valid primary = {FM_VALID}.",
         f"Current BEST: primary_valid={best.score():.4f} lever={best.lever} "
         f"cfg.loss_type={best.cfg.loss_type} model={best.cfg.model_type}",
-        "Recent experiments (hypothesis -> outcome):",
     ]
-    for r in mem.recall(k=8):
-        m = r.get("metrics") or {}
-        pv = m.get("primary_valid")
-        lines.append(f"  [{r.get('status')}] {r.get('lever')} {r.get('hypothesis','')[:70]} "
-                     f"-> {pv if pv is None else round(pv,4)}")
+    lines.append("CONFIRMED findings (adopted -- refine/extend):")
+    lines += [f"  + {x}" for x in t["confirmed"]] or ["  (none yet)"]
+    lines.append("REJECTED (below noise / regressed -- don't repeat; consider the opposite):")
+    lines += [f"  - {x}" for x in t["rejected"]] or ["  (none yet)"]
+    lines.append(f"BEST PER LEVER: {t['promising']}")
+    lines.append(f"UNTRIED LEVERS: {', '.join(t['unresolved']) or 'none'}")
     lines.append("Propose the next high-EV change.")
     return "\n".join(lines)
 
@@ -164,6 +176,14 @@ def _iterate(cfg, driver, run_dir, tree, mem, rng, it, phase, budget_left,
     if is_block:
         be, u2 = coder.code(driver, build_coder_context(parent, hyp), cfg.llm.coder, cfg.llm.temperature)
         cost["input_tokens"] += u2.input_tokens; cost["output_tokens"] += u2.output_tokens
+        if not getattr(be, "implementable", True):        # 1D: honest rejection -- no run, no debug
+            node = Node(id=f"n{it}", parent=parent.id, phase=phase, cfg=parent.cfg,
+                        block_dir=parent.block_dir, lever=hyp.lever, hypothesis=hyp.statement,
+                        problem=hyp.problem_identified, metrics=None, status="abandoned")
+            mem.append(_record(it, node, diff="",
+                               events=[{"class": "not_implementable", "detail": be.reason}],
+                               cost=cost, signature=None))
+            log(f"[it {it}] {hyp.lever} not implementable ({be.reason}) -> skip"); return stall + 1
         ok, msg = executor.check_imports(be.new_source)
         if not ok:
             node = Node(id=f"n{it}", parent=parent.id, phase=phase, cfg=parent.cfg,
@@ -199,8 +219,10 @@ def _iterate(cfg, driver, run_dir, tree, mem, rng, it, phase, budget_left,
             log(f"[it {it}] {hyp.lever} debug gate ok (sample primary~{dbg['primary_valid']:.3f})")
 
     if res is None:                                 # gate passed or not applicable -> full run
+        # 3B: also infer the unbiased random-exposure split in the same run (fm-family only in v1).
+        rand_split = "rand" if (getattr(cfg, "unbiased_eval", False) and ncfg.model_type == "fm") else None
         res, wc = executor.run_node(blocks, node_dir, Path(node_dir) / "cfg.json",
-                                    cfg.cache_dir, cfg.budget.per_iter_timeout_s)
+                                    cfg.cache_dir, cfg.budget.per_iter_timeout_s, extra_split=rand_split)
         if isinstance(res, executor.Failure):
             res, wc2, events = _recover(cfg, driver, res, node_dir, blocks, ncfg, block_edit, log, it)
             wc += wc2
@@ -214,12 +236,35 @@ def _iterate(cfg, driver, run_dir, tree, mem, rng, it, phase, budget_left,
         log(f"[it {it}] {hyp.lever} failed ({res.kind}) -> abandoned"); return stall + 1
 
     pv = res["primary_valid"]
-    status = "improved" if pv > parent.score() + 1e-9 else "no_gain"
+    # 2A: adoption margin must exceed the seed-noise floor (was +1e-9, below sigma~0.0008).
+    status = "improved" if pv > parent.score() + cfg.budget.adopt_eps else "no_gain"
     node = Node(id=f"n{it}", parent=parent.id, phase=phase, cfg=ncfg, block_dir=blocks,
-                lever=hyp.lever, hypothesis=hyp.statement,
+                lever=hyp.lever, hypothesis=hyp.statement, problem=hyp.problem_identified,
                 metrics={"GAUC": res["GAUC"], "nDCG@5": res["nDCG@5"],
                          "primary_valid": pv, "primary_unbiased": res.get("primary_unbiased")},
                 status=status)
+    # 2A (two-level confirmation): before a node is trusted as a NEW GLOBAL BEST, confirm its gain on
+    # extra seeds -- a single lucky seed must not steer the tree. Only fires when it beats the best.
+    prev_best = tree.best().score()
+    if cfg.recheck and status == "improved" and pv > prev_best + cfg.budget.adopt_eps:
+        ok, mean, seeds = reeval.confirm(blocks, ncfg, pv, prev_best, cfg.cache_dir,
+                                         cfg.budget.per_iter_timeout_s,
+                                         str(Path(node_dir) / "reeval"),
+                                         cfg.recheck_seeds, cfg.budget.adopt_eps)
+        node.metrics["primary_valid_seedmean"] = round(mean, 5)
+        if not ok:
+            node.status = status = "no_gain"
+        log(f"[it {it}] new-best check {node.id}: seeds={[round(s, 4) for s in seeds]} "
+            f"mean={mean:.4f} -> {'kept' if ok else 'reverted'}")
+    # 3B: unbiased-exposure eval -- flag exposure-policy overfitting (valid up, rand down). fm-only v1.
+    if getattr(cfg, "unbiased_eval", False) and ncfg.model_type == "fm":
+        rp = Path(node_dir) / "rand_scores.npy"
+        if rp.exists():
+            from pipeline.lib import rand_build
+            ru, ry = rand_build.load_rand(cfg.cache_dir)
+            pr = round(float(evaluate(ru, ry, np.load(rp))["primary"]), 5)
+            node.metrics["primary_rand"] = pr
+            log(f"[it {it}] unbiased(rand) primary={pr:.4f} vs valid {pv:.4f} (gap {pv - pr:+.4f})")
     tree.add(node)
     mem.append(_record(it, node, diff=diff, events=events, cost=cost, signature=sig))
     best_series.append(tree.best().score())
@@ -261,6 +306,7 @@ def _record(it, node, diff, events, cost, signature):
     return {
         "iter": it, "phase": node.phase, "node_id": node.id, "parent_id": node.parent,
         "lever": node.lever, "hypothesis": node.hypothesis,
+        "problem_identified": getattr(node, "problem", ""),
         "config": asdict(node.cfg), "code_diff": diff,
         "metrics": node.metrics, "status": node.status,
         "events": events, "cost": cost, "signature": signature,

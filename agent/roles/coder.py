@@ -11,6 +11,9 @@ Rules:
 - Reuse tested helpers from pipeline.lib (losses, seq, models_torch, gbm, calib) rather than
   reinventing them.
 - Keep the same top-level function name and signature the contract specifies.
+- If the hypothesis cannot be implemented within this one block's fixed signature (it needs a
+  frozen-file change, data not in the cache, or a different block), return implementable=false with a
+  one-sentence reason and an empty new_source. Do NOT emit placeholder or partial code.
 Return the BlockEdit schema only."""
 
 

@@ -34,6 +34,29 @@ class Memory:
         rs = [r for r in self.records if lever is None or r.get("lever") == lever]
         return rs[-k:]
 
+    def research_table(self, all_levers=("A", "B", "C", "D", "E", "F")) -> dict:
+        """1A: synthesize a compact scientific state for the Proposer (rule-based, no LLM call):
+        confirmed findings, rejected hypotheses, best-per-lever, and untried levers."""
+        names = {"A": "loss", "B": "sequence/DIN", "C": "multi-task", "D": "model-family",
+                 "E": "debias", "F": "ensemble"}
+        improved, rejected, per_lever = [], [], {}
+        for r in self.records:
+            m = r.get("metrics") or {}
+            pv = m.get("primary_valid")
+            if pv is None:
+                continue
+            lv = r.get("lever")
+            per_lever[lv] = max(per_lever.get(lv, 0.0), pv)
+            line = f'{lv}: "{r.get("hypothesis", "")[:60]}" -> {pv:.4f}'
+            (improved if r.get("status") == "improved" else rejected).append(line)
+        untried = [f"{lv} ({names[lv]})" for lv in all_levers if lv not in per_lever]
+        return {
+            "confirmed": improved[-4:],
+            "rejected": rejected[-4:],
+            "promising": {lv: round(p, 4) for lv, p in sorted(per_lever.items(), key=lambda x: -x[1])},
+            "unresolved": untried,
+        }
+
     def resource_totals(self) -> dict:
         cost = [r.get("cost", {}) for r in self.records]
         return {
