@@ -15,7 +15,7 @@ intervention**.
 
 This README is the **single source of truth**. It documents the system from the macro architecture
 down to every file and every important function, and explains the math and the reasoning behind each
-decision. Two companion docs go deeper where noted:
+decision. Four companion docs go deeper where noted:
 
 - **[docs/DESIGN.md](docs/DESIGN.md)** — the *why*: the research context (AIDE / MLE-STAR / AI-Scientist /
   RD-Agent), the two-layer thesis, why best-first search over MCTS, the loss↔metric insight, the
@@ -23,6 +23,13 @@ decision. Two companion docs go deeper where noted:
 - **[docs/MATH.md](docs/MATH.md)** — the *math*: full derivations of the metrics (GAUC, nDCG), the FM
   forward pass and gradient, BPR and softmax-CE losses and why they are AUC / nDCG surrogates,
   LightGBM LambdaRank, and the DeepFM+DIN attention model.
+- **[docs/INTEGRATION.md](docs/INTEGRATION.md)** — the *what we adopted*: six features integrated from
+  three teammate archives (Aerin, JX, Jonathan) — multi-task heads, the hypothesis-ledger dashboard,
+  cross-run champion resume, multi-seed re-eval, debug-first sample gate, and test-label data guard.
+- **[docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md)** — the *how*: code-level build specs for all six
+  integrated features, with reference code, verification steps, and edge-case guards.
+- **[docs/COMPARE.md](docs/COMPARE.md)** — *archive analysis*: architectural comparison of all teammate
+  codebases and the rationale for what was adopted vs. rejected.
 - **[docs/PROBLEM_STATEMENT.pdf](docs/PROBLEM_STATEMENT.pdf)** — the official challenge.
 
 ---
@@ -195,12 +202,15 @@ Grouped by role. "Frozen" files are hash-pinned and never edited by the agent.
 | `llm/gemini.py` | `GeminiDriver` — google-genai, structured output, retry/backoff, token accounting |
 | `llm/schemas.py` | Pydantic schemas the LLM must return: `Hypothesis`, `BlockEdit`, `RecoveryAction`, `AblationRead` |
 | `roles/{proposer,coder,reflector}.py` | The three role wrappers (system prompt + a typed `generate` call) |
+| `champion.py` | Cross-run champion persistence: save / load the best validated node across runs |
+| `reeval.py` | Multi-seed re-evaluation: confirm the submission on seed-mean, not a single lucky seed |
 
 ### Solution space (`pipeline/`) — [details §7](#7-the-block-contract--the-node-runner)–[§8](#8-the-solution-space--the-levers)
 | File | Purpose |
 |---|---|
 | `contracts.py` | `Cfg` (every lever knob), `Meta`, `FeatureSet`, and the six block signatures. **Frozen.** |
 | `run_node.py` | The fixed runner: assemble the six blocks → train → evaluate → emit metrics + scores. **Frozen.** |
+| `debug_cache.py` | Debug-first gate: build a small, row-consistent subsample of the cache for fast-fail smoke runs |
 | `baseline_blocks/*.py` | The FM+BCE baseline expressed as blocks; also the ablation control |
 | `lib/fm.py` | Numpy Factorization Machine, factored so the loss is pluggable |
 | `lib/losses.py` | Lever A: BPR (pairwise), softmax-CE (listwise), BCE — each with a `.mode` for the trainer |
@@ -210,12 +220,17 @@ Grouped by role. "Frozen" files are hash-pinned and never edited by the agent.
 | `lib/seq_build.py` | Lever B data: temporally-safe per-user behavior sequences, cached |
 | `lib/lgbm_blocks/*.py` | The adoptable LightGBM model-family block set |
 | `lib/din_blocks/*.py` | The adoptable DIN model-family block set |
+| `lib/aux_build.py` | Lever C data: per-row auxiliary labels (click/like/follow/comment/forward), cached and row-aligned |
 
-### Tests & docs
+### Tests, dashboard & docs
 | File | Purpose |
 |---|---|
 | `tests/mock_moves.py` | Scripted hypotheses for `MockDriver` — drives `--mock` and `--faults` end-to-end without an API |
-| `docs/DESIGN.md`, `docs/MATH.md`, `docs/PROBLEM_STATEMENT.pdf` | Design rationale, math derivations, the challenge |
+| `dashboard/hypothesis-ledger.html` | Standalone client-side dashboard: drag-and-drop `run_log.jsonl` to visualize the search tree, metrics, and cost |
+| `docs/DESIGN.md`, `docs/MATH.md` | Design rationale, math derivations |
+| `docs/INTEGRATION.md`, `docs/IMPLEMENTATION.md` | Archive integration proposals and code-level build specs for six adopted features |
+| `docs/COMPARE.md` | Architectural comparison of teammate codebases (Aerin, JX, Jonathan) |
+| `docs/PROBLEM_STATEMENT.pdf` | The official challenge |
 
 ---
 
@@ -271,7 +286,7 @@ Re-reading 106 MB of CSV per experiment would dominate the wall-clock budget, so
 
 ### `agent/datced.py` — the DataBundle
 - **`build_or_load(data_dir, cache_dir, force=False)`** — idempotent. Rebuilds only when the cache is
-  missing or `CACHE_VERSION` (currently `4`) changed. It calls the frozen `data.load`/`data.encode` once,
+  missing or `CACHE_VERSION` (currently `5`) changed. It calls the frozen `data.load`/`data.encode` once,
   then reuses those loaded rows to also build the LightGBM features (`gbm.build_features`) and the DIN
   sequences (`seq_build.build`). Saves per split: `X` (offset indices), `y`, `u` (int user codes for
   grouping), and `vid` (raw video ids, needed to write an aligned submission).
@@ -395,8 +410,10 @@ The six baseline blocks (FM features, `FMModel`, BCE loss, the shared trainer, p
 ensemble) are the **root node** (reproduce FM) *and* the ablation control. The agent's very first move is
 typically to rewrite the `loss` block to route through `make_loss`, turning loss choice into a config knob.
 
-**Levers not yet built:** C (multi-task heads) and E (unbiased-exposure-log guard) have `Cfg` fields and
-placeholders but are not implemented — see [§14](#14-honest-status-limitations-next-steps).
+**Lever C (multi-task heads)** is now fully implemented: `pipeline/lib/aux_build.py` caches the auxiliary
+labels, `pipeline/lib/din.py` adds a shared-trunk aux head, and `pipeline/lib/din_blocks/` wires it as an
+adoptable block set. **Lever E** (unbiased-exposure-log guard) has `Cfg` fields but is not yet
+implemented — see [§14](#14-honest-status-limitations-next-steps).
 
 ---
 
@@ -593,11 +610,26 @@ been exercised here (the Mock was used throughout to avoid spending API credits)
 `GEMINI_API_KEY` and will likely want light prompt iteration.
 
 **Light or pending:**
-- **Lever C** (multi-task heads) and **Lever E** (unbiased-exposure-log guard) have `Cfg` fields but no
-  implementation; `primary_unbiased` is therefore `null`.
+- **Lever E** (unbiased-exposure-log guard) has `Cfg` fields but no implementation; `primary_unbiased` is
+  therefore `null`.
 - **Ablation (M7)** is light — a per-lever best summary in the report; the `AblationRead` schema and role
   exist but do not yet *drive* Phase-2 targeted refinement.
 - DIN tuning (`L, k, epochs, neg_ratio`) is intentionally minimal — tuning is the agent's job in a full run.
+
+**Integrated from teammate archives (fully built):**
+- **Lever C — multi-task auxiliary heads** (`pipeline/lib/aux_build.py`, `pipeline/lib/din.py`) — adds
+  click/like/follow/comment supervision to the DIN trunk for ensemble diversity.
+- **Hypothesis-ledger dashboard** (`dashboard/hypothesis-ledger.html`) — zero-dependency, tree-aware
+  client-side viewer for `run_log.jsonl`.
+- **Cross-run champion resume** (`agent/champion.py`) — persists the best validated node across runs.
+- **Multi-seed re-evaluation** (`agent/reeval.py`) — guards the submission against seed noise by deciding
+  on the seed-mean.
+- **Debug-first sample gate** (`pipeline/debug_cache.py`, `agent/executor.py`) — fast-fails expensive torch
+  nodes on a 20k-row subsample before the full run.
+- **Test-label data guard** (`agent/datced.py`) — physically withholds `y["test"]` from agent blocks.
+
+See [docs/INTEGRATION.md](docs/INTEGRATION.md) for the rationale and [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md)
+for the code-level specs.
 
 **Suggested next steps:** (1) a Python 3.11/3.12 + CUDA venv so DIN uses the GPU; (2) a real
 `GEMINI_API_KEY` run with light prompt iteration; (3) build Lever E (random-exposure log into the cache) for
@@ -606,4 +638,7 @@ the unbiased guard; (4) promote the ablation analyzer to drive Phase-2.
 ---
 
 *Read next:* **[docs/DESIGN.md](docs/DESIGN.md)** (the why) · **[docs/MATH.md](docs/MATH.md)** (the math) ·
+**[docs/INTEGRATION.md](docs/INTEGRATION.md)** (what we adopted from teammates) ·
+**[docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md)** (build specs) ·
+**[docs/COMPARE.md](docs/COMPARE.md)** (archive comparison) ·
 **[docs/PROBLEM_STATEMENT.pdf](docs/PROBLEM_STATEMENT.pdf)** (the challenge).

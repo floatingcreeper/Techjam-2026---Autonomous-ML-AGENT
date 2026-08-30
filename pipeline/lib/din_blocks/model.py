@@ -3,4 +3,7 @@ from pipeline.lib.din import DIN, device
 
 
 def build_model(meta, cfg):
-    return DIN(meta.dim, meta.field_dims, k=cfg.k).to(device())
+    n_aux = len(getattr(cfg, "aux_tasks", ()) or ())
+    if n_aux and getattr(cfg, "mtl_arch", "shared") != "shared":
+        raise NotImplementedError(f"mtl_arch={cfg.mtl_arch!r} not implemented; only 'shared' (v1)")
+    return DIN(meta.dim, meta.field_dims, k=cfg.k, n_aux=n_aux).to(device())

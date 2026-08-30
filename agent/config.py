@@ -44,6 +44,18 @@ class Config:
     runs_dir: str = "runs"
     seed: int = 0
     gpu: str = "auto"                 # auto | on | off
+    # F5 -- debug-first sample gate (torch nodes)
+    debug_gate: bool = True
+    debug_train_n: int = 20000
+    debug_other_n: int = 10000
+    debug_epochs: int = 2
+    # F4 -- multi-seed re-eval of the submission at finalize
+    recheck: bool = True
+    recheck_seeds: tuple = (1, 2)
+    recheck_top_k: int = 3
+    # F3 -- cross-run champion resume
+    resume: bool = True
+    champion_dir: str = "runs/_champion"
     budget: Budget = field(default_factory=Budget)
     phases: Phases = field(default_factory=Phases)
     llm: LLM = field(default_factory=LLM)

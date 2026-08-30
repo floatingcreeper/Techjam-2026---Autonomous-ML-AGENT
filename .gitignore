@@ -19,3 +19,6 @@ agent/frozen.lock
 
 # Data (downloaded separately from kuairand.com, ~195 MB)
 KuaiRand-Pure/data/
+
+# Random stuff
+archives/

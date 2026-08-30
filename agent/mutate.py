@@ -34,6 +34,17 @@ def materialize_root(run_dir, src_blocks="pipeline/baseline_blocks", seed=0):
     return str(node_dir), str(blocks), cfg
 
 
+def materialize_named(run_dir, node_id, src_blocks, cfg):
+    """Snapshot an external block set (e.g. a saved cross-run champion) into nodes/<id>/ with its
+    cfg, so the fixed runner can re-validate it exactly like any other node. Returns
+    (node_dir, blocks_dir, cfg)."""
+    node_dir = Path(run_dir) / "nodes" / node_id
+    blocks = node_dir / "blocks"
+    _snapshot(src_blocks, blocks)
+    cfg.to_json(node_dir / "cfg.json")
+    return str(node_dir), str(blocks), cfg
+
+
 def materialize_child(run_dir, node_id, parent, hypothesis, block_edit):
     """Returns (node_dir, blocks_dir, cfg, diff)."""
     node_dir = Path(run_dir) / "nodes" / node_id

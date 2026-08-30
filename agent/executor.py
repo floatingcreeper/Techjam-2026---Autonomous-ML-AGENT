@@ -73,3 +73,19 @@ def run_node(blocks_dir, out_dir, cfg_path, cache_dir="runs/_cache",
     if pv is None or (isinstance(pv, float) and pv != pv):     # None / NaN
         return Failure("numerical", "primary_valid is None/NaN"), wc
     return m, wc
+
+
+def debug_gate(blocks_dir, cfg, cache_dir, scratch_dir, n_train=20000, n_other=10000, epochs=2):
+    """Fast-fail sample run (F5) on a subsampled cache via the existing frozen runner. Returns a
+    metrics dict on success or a Failure the caller routes to recovery -- never runs the full pipeline."""
+    from pipeline import debug_cache
+    dbg_cache = debug_cache.build(cache_dir, str(Path(scratch_dir) / "cache"), n_train, n_other, seed=cfg.seed)
+    c = cfg.replace(epochs=min(int(cfg.epochs), epochs), patience=1)
+    cp = Path(scratch_dir) / "cfg.json"; c.to_json(cp)
+    res, _ = run_node(blocks_dir, str(Path(scratch_dir) / "out"), cp, dbg_cache, timeout_s=180)
+    if isinstance(res, Failure):
+        return res
+    pv = res.get("primary_valid")
+    if pv is None or not (0.0 <= float(pv) <= 1.0):            # sanity gate, not a quality gate
+        return Failure("numerical", f"debug sample primary_valid out of range: {pv}")
+    return res

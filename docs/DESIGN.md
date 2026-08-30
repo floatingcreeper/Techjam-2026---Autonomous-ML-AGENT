@@ -1,8 +1,9 @@
 # Design & Rationale
 
 Why the system is built the way it is. The [README](../README.md) covers *what* each file does
-and *how* they connect; [MATH.md](MATH.md) covers the derivations; this doc covers the
-**decisions** — the reasoning, the research it draws on, and the alternatives rejected.
+and *how* they connect; [MATH.md](MATH.md) covers the derivations; [INTEGRATION.md](INTEGRATION.md)
+covers the six features adopted from teammate archives; this doc covers the **decisions** — the
+reasoning, the research it draws on, and the alternatives rejected.
 
 ---
 
@@ -143,7 +144,8 @@ prompt and the scripted mock) to try the high-EV ones first:
 | **B — sequences (DIN)** | attention over history + DeepFM | highest ceiling (the organizers' blank direction); more expensive (torch, GPU-preferred) |
 | **D — model family** | LightGBM LambdaRank | complementary tree bias; individually weak but strong ensemble diversity |
 | **F — ensemble** | rank-blend diverse families | compounds small complementary gains; the finisher |
-| **C — multi-task**, **E — debias** | aux heads; unbiased-log guard | planned; `Cfg` fields reserved, not yet built |
+| **C — multi-task** | shared-trunk aux heads (click/like/follow/comment) | **built** — `aux_build.py`, `din.py` aux head, `din_blocks/` wiring; see [INTEGRATION.md](INTEGRATION.md) §1 |
+| **E — debias** | unbiased-log guard | planned; `Cfg` fields reserved, not yet built |
 
 **Dead-ends encoded as hard "don'ts"** (the organizers proved these don't help, so the Proposer is told
 not to waste iterations on them): adding static user-side features, and raising the embedding size `k`
@@ -195,4 +197,4 @@ KuaiRand (arXiv:2208.08696).
 
 ---
 
-*Back to the [README](../README.md) · math in [MATH.md](MATH.md).*
+*Back to the [README](../README.md) · math in [MATH.md](MATH.md) · archive integration in [INTEGRATION.md](INTEGRATION.md) · build specs in [IMPLEMENTATION.md](IMPLEMENTATION.md) · archive comparison in [COMPARE.md](COMPARE.md).*

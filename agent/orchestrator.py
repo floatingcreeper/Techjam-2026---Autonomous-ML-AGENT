@@ -8,7 +8,7 @@ import time, json, subprocess, sys
 from pathlib import Path
 import numpy as np
 
-from agent import guardrails, datced, executor, mutate
+from agent import guardrails, datced, executor, mutate, reeval, champion
 from agent.tree import Node, SearchTree
 from agent.memory import Memory
 from agent.roles import proposer, coder, reflector
@@ -97,6 +97,33 @@ def run(cfg, driver, run_id=None, max_iter=None, verbose=True):
     mem.append(_record(0, root, diff="", events=[], cost={"wall_clock_s": wc}, signature=None))
     log(f"[root] primary_valid={root.score():.4f} ({wc:.0f}s)")
 
+    # F3: seed a cross-run champion (re-validated under the CURRENT cache) as an expandable node.
+    champ = champion.load(cfg.champion_dir) if getattr(cfg, "resume", False) else None
+    if champ:
+        try:
+            ccfg = Cfg.from_json(Path(cfg.champion_dir) / "cfg.json")
+            cdir, cblocks, _ = mutate.materialize_named(run_dir, "champion",
+                                                        str(Path(cfg.champion_dir) / "blocks"), ccfg)
+            cres, cwc = executor.run_node(cblocks, cdir, Path(cdir) / "cfg.json",
+                                          cfg.cache_dir, cfg.budget.per_iter_timeout_s)
+        except Exception as e:                                   # never let a bad champion kill a run
+            cres, cwc = executor.Failure("code", repr(e)), 0.0
+        if isinstance(cres, executor.Failure):
+            log(f"[champion] revalidation failed ({cres.kind}) -> ignoring stale champion")
+        else:
+            cnode = Node(id="champion", parent="root", phase=0, cfg=ccfg, block_dir=cblocks,
+                         lever="resume", hypothesis="resumed cross-run champion",
+                         metrics={"GAUC": cres["GAUC"], "nDCG@5": cres["nDCG@5"],
+                                  "primary_valid": cres["primary_valid"], "primary_unbiased": None},
+                         status="improved")
+            tree.add(cnode)
+            mem.append(_record(0, cnode, diff="# resumed champion",
+                               events=[{"class": "resume", "stored": champ.get("primary_valid"),
+                                        "cache_version": champ.get("cache_version")}],
+                               cost={"wall_clock_s": cwc}, signature=None))
+            log(f"[champion] revalidated primary_valid={cnode.score():.4f} "
+                f"(stored {champ.get('primary_valid')}, cache_v {champ.get('cache_version')})")
+
     best_series = [tree.best().score()]
     stall = 0
     it = 0
@@ -156,14 +183,28 @@ def _iterate(cfg, driver, run_dir, tree, mem, rng, it, phase, budget_left,
         log(f"[it {it}] duplicate of a tried node -> stall"); return stall + 1
     mem.note_seen(sig)
 
-    res, wc = executor.run_node(blocks, node_dir, Path(node_dir) / "cfg.json",
-                                cfg.cache_dir, cfg.budget.per_iter_timeout_s)
-    cost["wall_clock_s"] = round(wc, 1)
     events = []
+    res = None
+    wc = 0.0
+    # F5 debug-first gate: cheap crash/sanity check on a subsample before the full run (torch nodes).
+    if cfg.debug_gate and ncfg.model_type in ("din", "bst"):
+        dbg = executor.debug_gate(blocks, ncfg, cfg.cache_dir, str(Path(node_dir) / "_dbg"),
+                                  n_train=cfg.debug_train_n, n_other=cfg.debug_other_n,
+                                  epochs=cfg.debug_epochs)
+        if isinstance(dbg, executor.Failure):
+            log(f"[it {it}] {hyp.lever} debug gate FAILED ({dbg.kind}) -> recovery")
+            res, wc, events = _recover(cfg, driver, dbg, node_dir, blocks, ncfg, block_edit, log, it)
+            # recovery re-runs the FULL node if it can patch; else res stays a Failure (abandoned below)
+        else:
+            log(f"[it {it}] {hyp.lever} debug gate ok (sample primary~{dbg['primary_valid']:.3f})")
 
-    if isinstance(res, executor.Failure):
-        res, wc2, events = _recover(cfg, driver, res, node_dir, blocks, ncfg, block_edit, log, it)
-        cost["wall_clock_s"] = round(cost["wall_clock_s"] + wc2, 1)
+    if res is None:                                 # gate passed or not applicable -> full run
+        res, wc = executor.run_node(blocks, node_dir, Path(node_dir) / "cfg.json",
+                                    cfg.cache_dir, cfg.budget.per_iter_timeout_s)
+        if isinstance(res, executor.Failure):
+            res, wc2, events = _recover(cfg, driver, res, node_dir, blocks, ncfg, block_edit, log, it)
+            wc += wc2
+    cost["wall_clock_s"] = round(wc, 1)
 
     if isinstance(res, executor.Failure):
         node = Node(id=f"n{it}", parent=parent.id, phase=phase, cfg=ncfg, block_dir=blocks,
@@ -302,8 +343,34 @@ def _rerun_test(cfg, node, out_dir):
     return np.load(tp) if (not isinstance(r, executor.Failure) and tp.exists()) else None
 
 
+def _multiseed_best(cfg, tree, run_dir, log):
+    """F4: re-rank the top viable candidates by seed-MEAN valid primary, guarding the single-best
+    pick against single-seed selection bias. Returns (best_node, summary_dict)."""
+    ranked = sorted(tree._viable(), key=lambda n: -n.score())[: cfg.recheck_top_k]
+    summary, scored = {}, []
+    for n in ranked:
+        _, mean, prims = reeval.confirm(n.block_dir, n.cfg, n.score(), -1.0, cfg.cache_dir,
+                                        cfg.budget.per_iter_timeout_s,
+                                        str(Path(run_dir) / "reeval" / n.id),
+                                        cfg.recheck_seeds, cfg.budget.eps)
+        summary[n.id] = {"orig": round(n.score(), 5), "seed_mean": round(mean, 5),
+                         "seeds": [round(p, 5) for p in prims]}
+        scored.append((mean, n))
+        log(f"[reeval] {n.id} orig={n.score():.4f} seeds={[round(p, 4) for p in prims]} mean={mean:.4f}")
+    if not scored:
+        return tree.best(), summary
+    scored.sort(key=lambda t: -t[0])
+    best = scored[0][1]
+    log(f"[reeval] seed-mean best = {best.id} (mean {scored[0][0]:.4f})")
+    return best, summary
+
+
 def finalize(cfg, run_dir, tree, mem, log):
-    best = tree.best()
+    reeval_summary = None
+    if cfg.recheck:
+        best, reeval_summary = _multiseed_best(cfg, tree, run_dir, log)
+    else:
+        best = tree.best()
     best_dir = Path(run_dir) / "best"
     b = datced.load_bundle(cfg.cache_dir)
     ute = np.asarray(b.users["test"])
@@ -351,10 +418,18 @@ def finalize(cfg, run_dir, tree, mem, log):
         "final_valid": final_valid, "ensemble": ensemble_info,
         "delta_over_fm": round(final_valid - FM_VALID, 4),
         "submission_valid": sub_ok, "ablation_best_by_lever": _ablation_summary(tree),
+        "reeval": reeval_summary,
         "resource_totals": totals,
     }
     (Path(run_dir) / "resource_report.json").write_text(json.dumps(report, indent=2, default=float))
     _write_results_md(run_dir, final_valid, ensemble_info, totals)
+    if getattr(cfg, "resume", False):                 # F3: persist the best single node as champion
+        prev = champion.load(cfg.champion_dir)
+        if prev is None or best.score() > prev["primary_valid"]:
+            champion.save(cfg.champion_dir, best.block_dir, best.cfg, best.score(),
+                          datced.CACHE_VERSION, Path(run_dir).name, best.id)
+            log(f"[champion] saved {best.id} valid={best.score():.4f} "
+                f"(was {prev['primary_valid'] if prev else None})")
     log(f"[finalize] FINAL valid {final_valid:.4f} (d{final_valid-FM_VALID:+.4f} vs FM) | "
         f"tokens={totals['input_tokens']+totals['output_tokens']} wall={totals['wall_clock_s']}s")
     return final_valid

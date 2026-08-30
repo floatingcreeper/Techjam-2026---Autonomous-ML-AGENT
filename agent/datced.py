@@ -15,7 +15,7 @@ from pathlib import Path
 import numpy as np
 
 SPLITS = ("train", "valid", "test")
-CACHE_VERSION = 4          # bump when the cached array layout changes (forces a rebuild)
+CACHE_VERSION = 5          # bump when the cached array layout changes (forces a rebuild)
 SEQ_L = 30                 # max user-history length for Lever B (DIN)
 
 
@@ -62,11 +62,30 @@ def build_or_load(data_dir: str, cache_dir: str, force: bool = False) -> dict:
     # Lever B sequences (DIN)
     from pipeline.lib import seq_build
     seq_build.build(data_dir, str(cache), L=SEQ_L, force=True, splits=splits)
+    # Lever C auxiliary labels (re-reads raw logs for the aux columns data.load() drops)
+    from pipeline.lib import aux_build
+    aux_build.build(data_dir, str(cache), force=True)
+    _assert_aux_aligned(str(cache))
 
     meta = {"cache_version": CACHE_VERSION, "dim": int(dim), "n_fields": len(FIELDS),
             "fields": list(FIELDS), "field_dims": None, "sizes": sizes}
     meta_p.write_text(json.dumps(meta, indent=2))
     return meta
+
+
+def _assert_aux_aligned(cache_dir: str) -> None:
+    """Hard guard: aux rows must match base rows per split (aux_build re-derives row order
+    independently, so a silent drift would misattribute every aux label). Compare against the
+    cached {split}_vid.npy the base builder wrote in data.load() order."""
+    cache = Path(cache_dir)
+    for name in SPLITS:
+        base_vid = np.load(cache / f"{name}_vid.npy")
+        aux_vid = np.load(cache / "aux" / f"{name}_vid.npy")
+        if base_vid.shape != aux_vid.shape or not np.array_equal(base_vid, aux_vid):
+            raise RuntimeError(
+                f"aux cache misaligned with base cache on split {name!r} "
+                f"(aux {aux_vid.shape} vs base {base_vid.shape}) -- aux_build's read order "
+                f"diverged from data.load(); refusing to train on this cache.")
 
 
 def load_bundle(cache_dir: str) -> Bundle:
@@ -75,8 +94,9 @@ def load_bundle(cache_dir: str) -> Bundle:
     X, y, users = {}, {}, {}
     for name in SPLITS:
         X[name] = np.load(cache / f"{name}_X.npy", mmap_mode="r")
-        y[name] = np.load(cache / f"{name}_y.npy", mmap_mode="r")
         users[name] = np.load(cache / f"{name}_u.npy", mmap_mode="r")
+        if name != "test":                 # F6 guard: never expose hidden-test labels to agent blocks
+            y[name] = np.load(cache / f"{name}_y.npy", mmap_mode="r")
     return Bundle(X=X, y=y, users=users, dim=meta["dim"],
                   field_dims=meta.get("field_dims"), n_fields=meta["n_fields"],
                   cache_dir=str(cache))

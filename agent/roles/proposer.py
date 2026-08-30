@@ -14,6 +14,9 @@ Rules:
   B (sequence modeling / DIN). C (multi-task), E (debias), D (model family), F (ensemble).
 - A `config` mutation just changes cfg values; a `block` mutation rewrites one block body.
 - config_delta_json must be a JSON object of Cfg overrides, e.g. {"loss_type":"bpr","neg_ratio":8}.
+- Lever C (multi-task) is adoptable: adopt_blockset:"din" with config_delta
+  {"aux_tasks":["click","like"],"aux_weights":[0.1,0.1]} adds auxiliary heads (click/like/follow/
+  comment/forward) to the DIN, regularising the shared embeddings for extra ensemble diversity.
 Return the Hypothesis schema only."""
 
 

@@ -87,4 +87,13 @@ def build_moves():
                           config_delta_json='{"model_type":"din","k":16,"batch":2048,"loss_type":"bpr",'
                                             '"neg_ratio":2,"lr":0.001,"epochs":4,"patience":2}',
                           expected_metric="both", expected_gain=0.005)},
+        {"hypothesis": _H(lever="C",
+                          statement="Adopt DIN with multi-task auxiliary heads (click/like) for regularisation",
+                          rationale="auxiliary engagement signals regularise the shared embeddings and add "
+                                    "ensemble diversity (Lever C)",
+                          mutation_kind="config", adopt_blockset="din",
+                          config_delta_json='{"model_type":"din","k":16,"batch":2048,"loss_type":"bpr",'
+                                            '"neg_ratio":2,"lr":0.001,"epochs":4,"patience":2,'
+                                            '"aux_tasks":["click","like"],"aux_weights":[0.1,0.1]}',
+                          expected_metric="both", expected_gain=0.003)},
     ]
