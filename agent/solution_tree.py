@@ -103,6 +103,18 @@ class SolutionTree:
         with open(path, encoding='utf-8') as fh:
             d = json.load(fh)
         nodes = {int(k): Node.from_dict(v) for k, v in d['nodes'].items()}
+        # Drop a code_path that no longer exists on disk. Found live, and it killed a whole
+        # overnight run: models/generated/ was archived away while runs/solution_tree.json kept
+        # pointing at the moved files, so select() returned ('improve', node #58) and
+        # orchestrator's load_module() raised FileNotFoundError OUTSIDE any try — the process
+        # died, the supervisor restarted it, select() picked the same node, and it died again.
+        # Eight identical restarts, zero iterations. A node whose code is gone is not a code node
+        # any more: keeping its config (and its score) but clearing code_path degrades it to a
+        # config-only node, which debuggable() already skips and which `improve` correctly runs
+        # against the default model variant instead of a missing file.
+        for n in nodes.values():
+            if n.code_path and not os.path.exists(n.code_path):
+                n.code_path = None
         return cls(nodes, d.get('next_id', max(nodes, default=-1) + 1))
 
     def save(self, path=TREE_PATH):

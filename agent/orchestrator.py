@@ -72,13 +72,20 @@ MAX_GENERATED_EPOCHS = 40
 # can finish; the resulting_config logged for the iteration records the floored value.
 MIN_GENERATED_BATCH_SIZE = 256
 
-# Reject a candidate whose estimated full-run time exceeds this. debug_run has always computed
-# `estimated_full_runtime_s` and NOTHING ever read it - so there was no bound at all on how long a
-# single candidate could take, and a generated module could quietly consume the entire run. The
-# estimate is a deliberate over-estimate (linear extrapolation, ignores early stopping), so this
-# can be generous: the reference model's real full run is ~55s, making this ~10x headroom for a
-# legitimately heavier model while still ruling out the 2.7-hour case above.
-MAX_ESTIMATED_FULL_RUN_S = 600.0
+# How many times the REFERENCE model's own estimated runtime a candidate may cost before it is
+# rejected unrun. debug_run has always computed `estimated_full_runtime_s` and nothing ever read
+# it, so there was no bound at all on how long one candidate could take - a generated module with
+# batch_size=32 was measured heading for 2.7 hours.
+#
+# This is a MULTIPLE of the reference measurement, not an absolute number of seconds, and that
+# detail is the whole fix. Found live, painfully: the first version of this gate used a flat
+# 600s, which rejected 63 of 89 candidates in a real 53-iteration run - because the estimate runs
+# about 13x hot (it extrapolates `epochs` linearly while early stopping actually fires around
+# epoch 11, and it scales the one-off encode() cost as if it repeated every epoch). The reference
+# model's own estimate is ~1094s against an ~86s real run, so a flat 600s budget rejected the
+# known-good baseline itself. Measuring the reference the same way cancels that systematic bias:
+# whatever the estimator's error is, both sides carry it.
+RUNTIME_BUDGET_MULTIPLE = 5.0
 
 # Keys the HARNESS owns on the codegen path, no matter what a generated module's DEFAULTS say:
 # `seed` because reproducibility and reeval's multi-seed recheck depend on the caller setting it,
@@ -175,8 +182,42 @@ def _find_duplicate_config(config, history, window=DUPLICATE_CHECK_WINDOW):
     return None
 
 
+def measure_runtime_budget(data_dir, *, model=fm_v1, seed=0, verbose=True):
+    """One debug-sample run of the REFERENCE model, turned into this run's per-candidate runtime
+    budget. Returns seconds, or None if it could not be measured (in which case the gate is simply
+    off — an unmeasurable budget must not silently reject everything, which is exactly the failure
+    this function exists to prevent; see RUNTIME_BUDGET_MULTIPLE).
+
+    Measured once per process rather than persisted: it costs about a second, and it must reflect
+    the machine actually running the loop, not whatever machine last wrote state.json."""
+    try:
+        splits = load_train_valid(data_dir)
+        config = _module_defaults(model)
+        if 'data_dir' in config:
+            config['data_dir'] = data_dir
+        dbg = debug_run(model.train, splits, config, seed=seed)
+    except Exception as e:  # noqa: BLE001 — a failure to MEASURE the budget must never stop the
+        # loop; it just means this run has no runtime gate.
+        if verbose:
+            print(f"[budget] could not measure a runtime budget ({type(e).__name__}: {e}) - "
+                  f"per-candidate runtime gate disabled for this run")
+        return None
+    if not dbg.ok or dbg.estimated_full_runtime_s is None:
+        if verbose:
+            print(f"[budget] reference model did not produce an estimate ({dbg.reason}) - "
+                  f"per-candidate runtime gate disabled for this run")
+        return None
+    budget = dbg.estimated_full_runtime_s * RUNTIME_BUDGET_MULTIPLE
+    if verbose:
+        print(f"[budget] reference estimate {dbg.estimated_full_runtime_s:.0f}s -> rejecting "
+              f"candidates estimated above {budget:.0f}s "
+              f"({RUNTIME_BUDGET_MULTIPLE:.0f}x reference)")
+    return budget
+
+
 def run_iteration(data_dir, *, iteration_number, expected_total_iterations, current_best,
-                   history, tree=None, model=fm_v1, seed=0, verbose=True):
+                   history, tree=None, model=fm_v1, seed=0, verbose=True,
+                   runtime_budget_s=None):
     """One full iteration. Returns (record, new_current_best) — new_current_best is `current_best`
     unchanged unless the decision tree returned COMMIT.
 
@@ -202,7 +243,7 @@ def run_iteration(data_dir, *, iteration_number, expected_total_iterations, curr
     elif current_best:
         base_config = dict(current_best['config'])
     else:
-        base_config = dict(model.DEFAULT_CONFIG)
+        base_config = _module_defaults(model)
     # A model variant's DEFAULT_CONFIG may hardcode its own 'data_dir' (fm_v1 does, for loading
     # extra-field side-info CSVs) — always override it with the actual data_dir this run was
     # invoked with, so the interaction logs and the side-info files can never silently come from
@@ -275,7 +316,29 @@ def run_iteration(data_dir, *, iteration_number, expected_total_iterations, curr
         code_path = parent_node.code_path if parent_node else None
         if code_path:
             # Config tweak applied on top of a generated parent: keep running the parent's code.
-            run_model = codegen_agent.load_module(code_path)
+            # Wrapped because this is the ONE load_module() call on the config path and an
+            # uncaught exception here kills the whole process rather than the iteration — which
+            # is exactly what happened when a node's generated file went missing (see
+            # SolutionTree.load). The tree now prunes dead code_paths on load, so this is the
+            # belt to that suspenders: any import-time failure becomes a rejected iteration and
+            # a BUGGY node, never a crash.
+            try:
+                run_model = codegen_agent.load_module(code_path)
+            except Exception as e:  # noqa: BLE001 — see above; must not escape the iteration.
+                err = f"parent module failed to import: {type(e).__name__}: {e}"
+                d = decision.decide(debug_ok=False, debug_reason=err)
+                node = tree.add(parent_id=parent_node.id, operation='config',
+                                 summary=hyp['statement'], config=new_config,
+                                 code_path=code_path, iteration=iteration_number)
+                tree.mark_buggy(node.id, err)
+                tree.save()
+                if verbose:
+                    print(f"  [coding] {err}")
+                return _reject(proposal, pseudo_diff,
+                                [{'attempt': 1, 'error_text': err, 'diagnosis': None,
+                                  'fixable': True, 'fix_description': d.reason,
+                                  'repaired': False}],
+                                resulting_config=new_config, decision=d, node_id=node.id)
         if verbose:
             print(f"  [coding] {pseudo_diff}")
     else:
@@ -366,6 +429,36 @@ def run_iteration(data_dir, *, iteration_number, expected_total_iterations, curr
                                                       'fix_description': reason, 'repaired': False}],
                            resulting_config=new_config, node_id=node.id)
 
+    # ---- ineffective-config guard (config-action path only) ----
+    # A config action can change only keys the running model actually declares. Found live:
+    # `toggle_field` added extra_fields=['user_active_degree'] to a models/fm_bpr.py candidate,
+    # but fm_bpr calls plain data.encode() and has no extra_fields key at all — so the config was
+    # merged, silently ignored, and a full training run reproduced the incumbent's score to five
+    # decimal places (node #10 == node #0 == 0.60306). That burned a training run AND recorded a
+    # duplicate of the incumbent as an independent "working" node, which then competes with it in
+    # tree.best().
+    #
+    # The duplicate-config guard above cannot catch this: the config genuinely IS different, it
+    # just makes no difference. The right question is not "have we tried this config" but "can
+    # this config change anything for THIS model".
+    if generated is None:
+        declared = set(_module_defaults(run_model)) | set(HARNESS_OWNED_CONFIG_KEYS)
+        changed = {k for k in set(new_config) | set(base_config)
+                    if new_config.get(k) != base_config.get(k)}
+        if changed and not (changed & declared):
+            reason = (f"config action changed only {sorted(changed)}, none of which "
+                       f"{run_model.__name__} declares in its defaults ({sorted(declared)}) — it "
+                       f"would be merged and ignored, reproducing the parent's score exactly. "
+                       f"Skipped without training.")
+            tree.mark_buggy(node.id, reason)
+            tree.save()
+            if verbose:
+                print(f"  [ineffective-guard] {reason}")
+            return _reject(proposal, pseudo_diff, [{'attempt': 1, 'error_text': None,
+                                                      'diagnosis': None, 'fixable': False,
+                                                      'fix_description': reason, 'repaired': False}],
+                            resulting_config=new_config, node_id=node.id)
+
     # ---- debug_run gate ----
     dbg = debug_run(run_model.train, splits, new_config, seed=seed)
     if verbose:
@@ -393,11 +486,12 @@ def run_iteration(data_dir, *, iteration_number, expected_total_iterations, curr
     # now nothing consumed it. Rejecting here (rather than after discovering it live) is the whole
     # point of the debug-first design: the sample already told us what the full run would cost.
     est = dbg.estimated_full_runtime_s
-    if est is not None and est > MAX_ESTIMATED_FULL_RUN_S:
-        reason = (f"estimated full-run time {est:.0f}s exceeds the {MAX_ESTIMATED_FULL_RUN_S:.0f}s "
-                  f"budget for one candidate (config: batch_size="
-                  f"{new_config.get('batch_size')}, epochs={new_config.get('epochs')}) - skipped "
-                  f"without running it. Use a larger batch_size or fewer epochs.")
+    if est is not None and runtime_budget_s is not None and est > runtime_budget_s:
+        reason = (f"estimated full-run cost {est:.0f}s exceeds the {runtime_budget_s:.0f}s budget "
+                  f"for one candidate ({RUNTIME_BUDGET_MULTIPLE:.0f}x the reference model's own "
+                  f"estimate; both measured the same way) - skipped without running it. Config: "
+                  f"batch_size={new_config.get('batch_size')}, "
+                  f"epochs={new_config.get('epochs')}. Use a larger batch_size or fewer epochs.")
         d = decision.decide(debug_ok=False, debug_reason=reason)
         tree.mark_buggy(node.id, reason)
         tree.save()
@@ -551,7 +645,7 @@ def seed_baseline(data_dir, tree, *, model=fm_v1, seed=0, verbose=True):
     and resume picks it up like anything else.
     """
     splits = load_train_valid(data_dir)   # 'test' never present past this line
-    config = dict(model.DEFAULT_CONFIG)
+    config = _module_defaults(model)
     if 'data_dir' in config:
         config['data_dir'] = data_dir
     config['seed'] = seed
@@ -566,9 +660,29 @@ def seed_baseline(data_dir, tree, *, model=fm_v1, seed=0, verbose=True):
         return None
 
     valid = metrics['valid']
+    # Record the variant's OWN source file as the root node's code_path. This is not
+    # bookkeeping — it decides what the loop is able to build on, and getting it wrong silently
+    # throws the incumbent away.
+    #
+    # Found live within six iterations of switching the loop to models/fm_bpr.py: this used to
+    # pass code_path=None. run_iteration's codegen path only sets `parent_source` when the parent
+    # node HAS a code_path that exists on disk, and falls back to gen_op='draft' when it doesn't.
+    # So every IMPROVE on the root asked the model to write a fresh solution with no sight of the
+    # incumbent, and it duly wrote the pointwise FM from prompts/write_model.md's reference —
+    # discarding the BPR objective entirely. Two such nodes scored 0.60147, which is fm_v1's
+    # score to five decimals, not fm_bpr's 0.60306. The loop was regressing to the model it was
+    # supposed to be improving on, once per iteration, and reporting it as normal progress.
+    baseline_source = getattr(model, '__file__', None)
+    if baseline_source:
+        try:   # relative keeps the tree portable, matching generated modules' stored paths
+            baseline_source = os.path.relpath(baseline_source, os.getcwd())
+        except ValueError:   # different drive on Windows — an absolute path still works
+            pass
+        if not os.path.exists(baseline_source):
+            baseline_source = None
     node = tree.add(parent_id=None, operation='baseline',
                      summary=f"{model.__name__} reference baseline", config=config,
-                     code_path=None, iteration=0)
+                     code_path=baseline_source, iteration=0)
     tree.mark_working(node.id, metrics, valid['primary'])
     tree.save()
     if verbose:
@@ -626,6 +740,7 @@ def run_loop(data_dir, *, expected_total_iterations, max_iterations=None, model=
               f"[resume] continuing from iteration {start_iter} (no current-best yet)")
 
     deadline = (time.time() + max_hours * 3600.0) if max_hours else None
+    runtime_budget_s = measure_runtime_budget(data_dir, model=model, seed=seed, verbose=verbose)
 
     for it in range(start_iter, cap + 1):
         if deadline is not None and time.time() >= deadline:
@@ -639,7 +754,7 @@ def run_loop(data_dir, *, expected_total_iterations, max_iterations=None, model=
         record, current_best = _run_iteration_with_retry(
             data_dir, iteration_number=it, expected_total_iterations=expected_total_iterations,
             current_best=current_best, history=history, tree=tree, model=model, seed=seed,
-            verbose=verbose)
+            verbose=verbose, runtime_budget_s=runtime_budget_s)
         archivist.archive(record, current_best=current_best, log_path=log_path,
                            state_path=state_path)
         history.append(logging_schema.to_history_entry(record))

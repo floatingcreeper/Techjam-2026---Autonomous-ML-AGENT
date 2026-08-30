@@ -23,12 +23,58 @@ test labels. Only the provided KuaiRand splits.
 Available feature/side-info fields: {{ feature_list }}
 Available feedback signals beyond click (for multi-task ideas): {{ feedback_signals }}
 
-Action space today: only HYPERPARAMETER changes are actually executable this iteration (k, lr,
-l2, epochs, patience, batch_size — i.e. target_stage="training"). A features/model/sampling/
-eval_postprocessing hypothesis will still be logged as a valuable idea for later, but this
-iteration's compute and your tokens are spent for zero training signal if it can't be
-implemented right now. Prefer a training/hyperparameter hypothesis unless you have a specific,
-stated reason a not-yet-executable idea is clearly the more valuable thing to record this turn.
+Action space today: BOTH of these are fully executable this iteration.
+  1. Config actions — set a hyperparameter (k, lr, l2, epochs, patience, batch_size) or toggle
+     one of the eight pre-built extra fields on/off. Cheap, no code risk.
+  2. FULL CODE GENERATION — a separate step writes and runs a complete new model module for you.
+     A features / model / sampling / eval_postprocessing hypothesis is therefore just as
+     implementable as a training one. Nothing gets "logged as an idea for later" any more.
+
+HYPERPARAMETER SEARCH ON THIS MODEL IS EXHAUSTED. Read this before you propose anything.
+Across 75 prior iterations, every working configuration scored between 0.5976 and 0.6016 on
+valid — a total spread of 0.0040, against a seed-to-seed noise floor of 0.0008 and an accept
+threshold of 0.0020. The entire hyperparameter region is about two noise widths wide, so no
+setting of k/lr/l2/epochs/patience/batch_size can clear the acceptance bar. Proposing another
+one is a guaranteed null result. The model is nonetheless still ~0.25 primary below the oracle
+ceiling of 0.8484, so the headroom is real — it is just not in the hyperparameters.
+
+What has ALREADY been tried, measured, and settled — do not re-propose any of it:
+
+  * ITEM-SIDE FEATURES ARE SATURATED. Smoothed per-video/per-author long_view rates added as
+    target-encoded fields scored 0.5906 against the 0.6015 baseline — worse, and degrading from
+    epoch 1. Blending the FM with the popularity prior was swept offline: best weight alpha=0.05
+    for +0.00003, then monotonic decline. The reason is that the FM's video_id linear weight
+    W[video_id] already IS a learned per-video propensity, fitted on the same train rows a
+    popularity lookup counts, so re-feeding it is redundant capacity and extra parameters to
+    overfit. This also rules out video_features_statistic_pure.csv — same signal.
+  * THE LOSS FUNCTION WAS THE WIN, and it is already banked. models/fm_bpr.py trains a
+    WITHIN-USER PAIRWISE (BPR) objective — sample (positive, negative) pairs from the same user,
+    maximize sigmoid(z_pos - z_neg) — adding zero features and reusing baseline.FM's forward
+    pass, embeddings and Adam untouched. Valid 0.6027 +/- 0.0005 against 0.6016 +/- 0.0003 over
+    5 seeds; test 0.5970 against 0.5953. It is the incumbent you are now improving on.
+  * ITS HYPERPARAMETERS ARE ALSO FLAT. k=32 -> 0.6021 against k=16's 0.6031; pairs_per_pos=4 ->
+    0.6021 against 2's 0.6031; lr 0.002 -> 0.6002, 0.005 -> 0.5984. Same conclusion as for the
+    old model. Do not re-search them.
+
+Where the remaining headroom actually is. Prefer a hypothesis that attacks one of these:
+  * SHARPENING THE WITHIN-USER ORDERING, since that is the only thing either metric measures.
+    Harder negative sampling (draw negatives closer to the positive rather than uniformly), a
+    margin objective, a listwise objective, or weighting pairs by how badly they are currently
+    ordered. This is the same lever that just produced the one confirmed gain, and it is far
+    from exhausted.
+  * DURATION MODELLING, which is untested and — unlike the item-side features — varies WITHIN a
+    user, so it can actually move the metric. long_view is duration-dependent by construction,
+    and the kit gives the model only 10 quantile buckets. Try 32-64 bins, plus explicit crosses
+    of dur_bucket with user_active_degree and with tab.
+  * USER-SIDE SIGNAL THROUGH INTERACTIONS. Both metrics are within-user, so a feature constant
+    across a user's rows contributes nothing as a linear term — it can only pay off through the
+    FM's pairwise interaction terms. If you propose one, frame it as the INTERACTION that earns
+    its place, not as the feature.
+
+Note on architecture: every generated module so far has been the reference Factorization Machine
+with a different hyperparameter dict — 16 modules, 6 distinct program structures, 1 architecture.
+If your hypothesis is a model/architecture change, say concretely what is STRUCTURALLY different
+about it, not just which constants differ.
 
 Your loop design draws on published autonomous ML agent architectures (R&D-Agent,
 ML-Master, MLE-STAR, AIRA). You are running a GREEDY / CHAIN search strategy: one active

@@ -15,6 +15,28 @@ implementation_sketch: {{ implementation_sketch }}
 {{ context_block }}
 
 ═══════════════════════════════════════════
+IF YOU WERE GIVEN A PARENT MODULE, IT OUTRANKS EVERY REFERENCE BELOW
+═══════════════════════════════════════════
+When the context block above contains a parent module's source (operation = improve or debug),
+that source — NOT the reference modules further down this prompt — is your starting point. Copy
+it, then make the one change your idea calls for.
+
+In particular you MUST PRESERVE THE PARENT'S TRAINING OBJECTIVE unless your idea is explicitly
+about changing the objective. If the parent samples (positive, negative) pairs and optimizes
+sigmoid(z_pos - z_neg), your module does too. If the parent calls a pairwise step function, do
+not replace it with `m.step(X, y)`.
+
+This is not hypothetical. In a real run, eight consecutive generated modules — several of them
+IMPROVE operations handed a pairwise parent — silently rewrote themselves as the plain pointwise
+Factorization Machine from the reference below, discarding the parent's objective entirely. Every
+one of them scored 0.60147, which is the pointwise baseline's score to five decimals, while the
+parent they were supposed to be improving scored 0.60306. The whole iteration was spent
+re-deriving a model the repo had already beaten.
+
+The reference modules below exist to show you the API — how encode() is called, what evaluate()
+takes, what train() must return. They are NOT a default architecture to fall back on.
+
+═══════════════════════════════════════════
 THE CONTRACT YOUR MODULE MUST SATISFY
 ═══════════════════════════════════════════
 Define exactly this top-level function:
@@ -55,10 +77,25 @@ Useful building blocks you MAY import and reuse:
     from models.base import non_train_splits
 
 ═══════════════════════════════════════════
-A COMPLETE WORKING REFERENCE MODULE - COPY THIS STRUCTURE
+A COMPLETE WORKING REFERENCE MODULE - COPY ITS API CALLS, NOT ITS ARCHITECTURE
 ═══════════════════════════════════════════
 This is the real models/fm_v1.py. It runs, it scores primary ~0.60, and every API call in it is
-correct. Start from this shape and change only what your idea requires.
+correct.
+
+Read it as an API CONTRACT EXAMPLE, not as a template to fill in. What you must copy exactly is
+the plumbing: the train() signature, how encode() is called, how evaluate() is called, the
+{split: metrics} return shape, the DEFAULTS dict, the early-stopping structure. What you are
+FREE — and usually expected — to replace is everything that makes it a Factorization Machine:
+the features it builds, the loss it optimizes, how scores are produced, and whether B.FM is
+involved at all.
+
+Take that seriously. Across 75 prior iterations this prompt produced 16 generated modules with
+only 6 distinct program structures — the largest cluster was 6 byte-identical programs differing
+only in the DEFAULTS dict, and every single draft was a Factorization Machine. Meanwhile every
+hyperparameter setting ever tried scored within 0.0040 of every other, against a 0.0008 noise
+floor: tuning constants on this architecture is a proven dead end. If your idea is a config
+change, it should have come through the config action, not through you. You are here because
+something STRUCTURAL needs to change.
 
     import numpy as np
 
@@ -107,6 +144,54 @@ correct. Start from this shape and change only what your idea requires.
         return {name: evaluate(u, y, m.predict(X)) for name, (X, y, u) in eval_enc.items()}
 
 ═══════════════════════════════════════════
+A SECOND REFERENCE - STRUCTURALLY DIFFERENT, SAME CONTRACT
+═══════════════════════════════════════════
+Same plumbing, different model: no B.FM at all, no embeddings, no gradient descent. It shows
+that a module satisfying the contract does not have to be a Factorization Machine, and it shows
+how to fit a statistic on TRAIN ONLY and apply it to every split. A target encoding like this is
+the popularity baseline as a feature; popularity alone scores ~0.58.
+
+    import collections
+
+    import numpy as np
+
+    from evaluate import evaluate
+    from models.base import non_train_splits
+
+    DEFAULTS = {'prior': 20.0, 'seed': 0}
+
+
+    def train(splits, config=None, verbose=False):
+        cfg = {**DEFAULTS, **(config or {})}
+        # Fit on TRAIN ONLY - x[2]=video_id, x[6]=label. Never touch a non-train split here.
+        pos, imp = collections.Counter(), collections.Counter()
+        for x in splits['train']:
+            imp[x[2]] += 1
+            pos[x[2]] += x[6]
+        gmean = sum(pos.values()) / max(sum(imp.values()), 1)
+        prior = cfg['prior']
+
+        def score(v):
+            return (pos[v] + prior * gmean) / (imp[v] + prior) if imp[v] else gmean
+
+        out = {}
+        for name in non_train_splits(splits):
+            rows = splits[name]
+            out[name] = evaluate([x[1] for x in rows], [x[6] for x in rows],
+                                 [score(x[2]) for x in rows])
+        return out
+
+Ways to go structurally further, all of which fit this same contract:
+  * Blend two scorers: standardize each score WITHIN each user (subtract that user's mean,
+    divide by its std), then combine as z(a) + alpha * z(b). Two models that make different
+    errors usually blend above both.
+  * Replace the loss: sample (positive, negative) pairs from the SAME user and optimize
+    sigmoid(s_pos - s_neg) instead of pointwise logloss. The metric is a within-user ranking, so
+    this optimizes it directly. Reuse B.FM's V/W/b and predict(); only the gradient changes.
+  * Add target-encoded features (per video, per author, per tab, per user) to the FM's inputs by
+    quantile-bucketing them on train and appending them as extra categorical columns.
+
+═══════════════════════════════════════════
 MISTAKES THAT GET YOU AUTOMATICALLY REJECTED - read these before you write
 ═══════════════════════════════════════════
 These are real failures from previous runs. The static analyzer checks for them by name.
@@ -121,6 +206,19 @@ These are real failures from previous runs. The static analyzer checks for them 
 
   WRONG:  enc, dim = encode_with_extra_fields(splits, data_dir, extra)   # returns THREE values
   RIGHT:  enc, dim, field_list = encode_with_extra_fields(splits, data_dir, extra)
+
+  WRONG:  encode_with_extra_fields(splits, data_dir, extra=['music_id'])   # no such keyword
+  RIGHT:  encode_with_extra_fields(splits, cfg['data_dir'], ['music_id'])  # third arg positional
+          The parameter is named `extra_fields`. Prefer positional arguments.
+
+  WRONG:  extra_fields = ['author_id']    # author_id is ALREADY a base field, not an extra
+  RIGHT:  the ONLY valid extra field names are exactly these eight:
+            music_id, video_type, upload_type, follow_user_num_range,
+            register_days_range, fans_user_num_range, friend_user_num_range,
+            user_active_degree
+          The five base fields (always present, never in extra_fields) are:
+            user_id, video_id, author_id, tab, dur_bucket
+          Anything else raises ValueError at runtime and wastes the whole iteration.
 
   WRONG:  scores = np.clip(model.predict(X), 0, 1)
   RIGHT:  scores = model.predict(X)

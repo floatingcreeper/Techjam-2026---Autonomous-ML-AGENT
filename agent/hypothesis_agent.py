@@ -37,14 +37,61 @@ FIELDS_TOGGLEABLE = (
     f"{', '.join(EXTRA_FIELDS)} — real columns, genuinely addable/removable via the "
     f"toggle_field action (agent/action_space.py), not just a description."
 )
-# Present in the raw CSV logs but NOT currently read into data.load()'s row tuples at all (only
-# date/user_id/video_id/author_id/tab/duration_ms/long_view are, see data.py's load()) — stated
-# explicitly so the model doesn't assume these are already reachable via some x[N] index today.
+# What this block is FOR: telling the research agent where the remaining signal actually is.
+#
+# It used to advertise the raw per-row behaviour columns (is_like, is_comment, play_time_ms, ...)
+# as "available for multi-task ideas". That was actively harmful on two counts, and it dominated
+# a whole 75-iteration run: eight of the last seventeen hypotheses chased those names, four died
+# outright with `ValueError: [...] not in EXTRA_FIELDS`, and the rest silently degraded into
+# plain hyperparameter tweaks. Worse, they are LEAKAGE - post-view outcomes recorded on the same
+# log row as the label, and play_time_ms together with duration_ms mechanically determines
+# long_view. The kit loading only 7 of the 19 log columns is deliberate, not an oversight.
+#
+# The "measured dead end" section below is the important half. Every direction in it was actually
+# implemented and run, not reasoned about - see models/fm_bpr.py's docstring for the full numbers.
+# Without it the research agent re-derives the same plausible-sounding item-feature ideas every
+# few iterations and burns a training run rediscovering that they do not work.
 FEEDBACK_SIGNALS = (
-    "is_like, is_follow, is_comment, is_forward, is_hate, play_time_ms, profile_stay_time, "
-    "comment_stay_time, is_profile_enter — present in the raw interaction-log CSVs but NOT "
-    "currently loaded by data.load() into the row tuples; using any of these requires first "
-    "adding them there and updating every positional x[N] read downstream of that change."
+    "OFF-LIMITS (leakage): is_like, is_follow, is_comment, is_forward, is_hate, play_time_ms, "
+    "profile_stay_time, comment_stay_time, is_profile_enter. These are post-view OUTCOMES "
+    "recorded on the same interaction-log row as the label, and play_time_ms with duration_ms "
+    "mechanically determines long_view. data.load() deliberately does not read them. Never "
+    "propose using them as model inputs - a validation score built on them is meaningless.\n"
+    "\n"
+    "MEASURED DEAD END - item-side features are SATURATED. Do not propose these again:\n"
+    "  * Smoothed per-video/per-author long_view rates as target-encoded fields: implemented, "
+    "scored 0.5906 vs the 0.6015 baseline. WORSE, and it degraded from epoch 1.\n"
+    "  * Blending the FM with the popularity prior: swept offline on a trained FM's own valid "
+    "scores. Best weight alpha=0.05 for +0.00003, then monotonic decline (alpha=0.5 -> 0.5998, "
+    "alpha=1.0 -> 0.5970).\n"
+    "  * video_features_statistic_pure.csv item-quality aggregates: same signal, not run.\n"
+    "  WHY: the FM's video_id linear weight W[video_id] already IS a learned per-video "
+    "propensity, fitted on the same train rows a popularity lookup counts. Re-feeding it as a "
+    "feature is redundant capacity and nothing else - extra parameters to overfit.\n"
+    "\n"
+    "MEASURED WIN - already built, and it is the current incumbent:\n"
+    "  * models/fm_bpr.py replaces pointwise logloss with a WITHIN-USER PAIRWISE (BPR) "
+    "objective: sample (pos, neg) pairs from the same user, maximize sigmoid(z_pos - z_neg). "
+    "Adds zero features. Valid 0.6027 +/- 0.0005 vs 0.6016 +/- 0.0003 over 5 seeds; test 0.5970 "
+    "vs 0.5953. Its hyperparameters were swept and are also flat (k=32 worse, pairs_per_pos=4 "
+    "worse, every raised lr worse) - do not re-search them.\n"
+    "\n"
+    "STILL GENUINELY UNTAPPED - propose from here:\n"
+    "  (a) Anything that sharpens the WITHIN-USER ordering further, since that is the only thing "
+    "the metric measures. Harder negative sampling (draw negatives closer to the positive rather "
+    "than uniformly), a margin or a listwise objective, or weighting pairs by how badly they are "
+    "currently ordered.\n"
+    "  (b) Duration modelling. long_view is duration-dependent by construction - watching 10s of "
+    "a 10s clip is a long view, 10s of a five-minute one is not - and the kit gives the model "
+    "only 10 quantile buckets of duration. Try 32-64 bins, plus explicit crosses of dur_bucket "
+    "with user_active_degree and with tab. Untested, and unlike the item-side features it varies "
+    "WITHIN a user, so it can actually move the metric.\n"
+    "  (c) User-side personalization through interactions. A feature constant across a user's "
+    "rows contributes nothing as a linear term (both metrics are within-user), so it can only "
+    "pay off through the FM's pairwise interaction terms - e.g. user_active_degree x dur_bucket. "
+    "Frame such a hypothesis in terms of the INTERACTION, not the feature.\n"
+    "  (d) Model capacity, but only after the above: k=32 was worse under both objectives, so a "
+    "capacity change needs a reason beyond 'bigger'."
 )
 
 

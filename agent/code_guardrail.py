@@ -68,6 +68,14 @@ ENCODE_FUNCTIONS = {
     'encode': (True, 2),
     'encode_with_extra_fields': (True, 3),
 }
+# Keyword arguments each encoder actually accepts. Found live: 11 of 89 candidates in one real run
+# died on `encode_with_extra_fields() got an unexpected keyword argument 'extra'` — the parameter
+# is `extra_fields`. A wrong kwarg name is invisible to the arity/subscript checks above and only
+# shows up as a TypeError after the module is on disk and running.
+ENCODE_KWARGS = {
+    'encode': {'splits'},
+    'encode_with_extra_fields': {'splits', 'data_dir', 'extra_fields'},
+}
 # evaluate(user_ids, labels, scores, k=5) — the three positional args are mandatory.
 EVALUATE_MIN_ARGS = 3
 
@@ -155,6 +163,16 @@ def check_source(source):
                     f"`{name}(splits)` and then read `enc['train']` / `enc[name]` from its "
                     f"result. Passing a single split's row list makes {name}() try to index a "
                     f"list with a string (TypeError: list indices must be integers ...).")
+
+        if name in ENCODE_KWARGS:
+            allowed = ENCODE_KWARGS[name]
+            for kw in node.keywords:
+                if kw.arg is not None and kw.arg not in allowed:
+                    reasons.append(
+                        f"{name}() has no keyword argument {kw.arg!r}. Its signature is "
+                        f"encode(splits) / encode_with_extra_fields(splits, data_dir, "
+                        f"extra_fields) - the third parameter is `extra_fields`, not "
+                        f"{kw.arg!r}. Prefer positional arguments.")
 
         if name == 'evaluate':
             positional = [a for a in node.args if not isinstance(a, ast.Starred)]
