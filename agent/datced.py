@@ -15,7 +15,7 @@ from pathlib import Path
 import numpy as np
 
 SPLITS = ("train", "valid", "test")
-CACHE_VERSION = 5          # bump when the cached array layout changes (forces a rebuild)
+CACHE_VERSION = 6          # bump when the cached array layout changes (forces a rebuild)
 SEQ_L = 30                 # max user-history length for Lever B (DIN)
 
 
@@ -66,6 +66,9 @@ def build_or_load(data_dir: str, cache_dir: str, force: bool = False) -> dict:
     from pipeline.lib import aux_build
     aux_build.build(data_dir, str(cache), force=True)
     _assert_aux_aligned(str(cache))
+    # Lever E: the random-exposure log as an unbiased validation set (public; train-vocab encoded)
+    from pipeline.lib import rand_build
+    rand_build.build(data_dir, str(cache), splits["train"], force=True)
 
     meta = {"cache_version": CACHE_VERSION, "dim": int(dim), "n_fields": len(FIELDS),
             "fields": list(FIELDS), "field_dims": None, "sizes": sizes}
@@ -97,6 +100,11 @@ def load_bundle(cache_dir: str) -> Bundle:
         users[name] = np.load(cache / f"{name}_u.npy", mmap_mode="r")
         if name != "test":                 # F6 guard: never expose hidden-test labels to agent blocks
             y[name] = np.load(cache / f"{name}_y.npy", mmap_mode="r")
+    rand_dir = cache / "rand"              # Lever E: unbiased-exposure split (public labels -> kept)
+    if (rand_dir / "rand_X.npy").exists():
+        X["rand"] = np.load(rand_dir / "rand_X.npy", mmap_mode="r")
+        y["rand"] = np.load(rand_dir / "rand_y.npy", mmap_mode="r")
+        users["rand"] = np.load(rand_dir / "rand_u.npy", mmap_mode="r")
     return Bundle(X=X, y=y, users=users, dim=meta["dim"],
                   field_dims=meta.get("field_dims"), n_fields=meta["n_fields"],
                   cache_dir=str(cache))

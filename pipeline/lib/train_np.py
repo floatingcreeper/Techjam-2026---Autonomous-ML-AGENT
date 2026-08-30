@@ -42,10 +42,23 @@ def _loop(model, feats, cfg, epoch_fn):
     return model
 
 
+def _ips_weights(Xtr, field=1):
+    """Lever E: inverse item-exposure propensity from train item frequency, normalised to mean 1.
+    Over-exposed (popular) items get down-weighted -- a simple IPS proxy for exposure bias."""
+    items = np.asarray(Xtr[:, field])
+    freq = np.bincount(items)[items].astype(np.float32)
+    w = 1.0 / np.sqrt(freq + 1.0)
+    return (w / w.mean()).astype(np.float32)
+
+
 def _fit_point(model, lossfn, feats, cfg):
     Xtr, ytr = feats.X["train"], feats.y["train"]
     rng = np.random.default_rng(cfg.seed)
     N = len(ytr)
+    # Lever E: IPS row weights when requested (loss_type='ips_bce' or cfg.ips)
+    row_w = None
+    if getattr(cfg, "loss_type", "") == "ips_bce" or getattr(cfg, "ips", False):
+        row_w = _ips_weights(np.asarray(Xtr))
 
     def epoch(ep):
         idx = rng.permutation(N)
@@ -53,7 +66,8 @@ def _fit_point(model, lossfn, feats, cfg):
             b = idx[i:i + cfg.batch]
             Xb = np.asarray(Xtr[b]); yb = np.asarray(ytr[b])
             z, cache = model.logits(Xb)
-            _, g = lossfn(z, {"y": yb})
+            batch = {"y": yb} if row_w is None else {"y": yb, "w": row_w[b]}
+            _, g = lossfn(z, batch)
             model.apply_grad(Xb, g, cache, grad_clip=cfg.grad_clip)
 
     return _loop(model, feats, cfg, epoch)

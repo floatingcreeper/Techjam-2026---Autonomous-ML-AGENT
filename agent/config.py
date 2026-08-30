@@ -13,8 +13,9 @@ class Budget:
     max_iter: int = 50
     wall_clock_hours: float = 6.0
     per_iter_timeout_s: int = 900
-    eps: float = 0.0002
-    N: int = 6
+    eps: float = 0.002              # 2A: convergence window (organizer rule); strictly above sigma~0.0008
+    N: int = 6                      # reported convergence window -- do NOT inflate to 15-20 (see IMPROVEMENTS 2A)
+    adopt_eps: float = 0.001        # 2A: min gain vs parent/best to count as a real improvement (> seed noise)
 
 
 @dataclass
@@ -54,8 +55,10 @@ class Config:
     recheck_seeds: tuple = (1, 2)
     recheck_top_k: int = 3
     # F3 -- cross-run champion resume
-    resume: bool = True
+    resume: bool = False
     champion_dir: str = "runs/_champion"
+    # 3B -- Lever E unbiased-exposure eval (fm-family only in v1; off by default -- adds one inference)
+    unbiased_eval: bool = False
     budget: Budget = field(default_factory=Budget)
     phases: Phases = field(default_factory=Phases)
     llm: LLM = field(default_factory=LLM)

@@ -17,6 +17,9 @@ Rules:
 - Lever C (multi-task) is adoptable: adopt_blockset:"din" with config_delta
   {"aux_tasks":["click","like"],"aux_weights":[0.1,0.1]} adds auxiliary heads (click/like/follow/
   comment/forward) to the DIN, regularising the shared embeddings for extra ensemble diversity.
+- FIRST state problem_identified: the single most likely bottleneck given the current best, the recent
+  history, and the per-lever ablation -- reference concrete numbers/levers, not generic advice. THEN
+  propose the change that addresses exactly that problem.
 Return the Hypothesis schema only."""
 
 

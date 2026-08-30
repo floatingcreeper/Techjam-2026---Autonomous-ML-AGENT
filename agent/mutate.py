@@ -53,6 +53,8 @@ def materialize_child(run_dir, node_id, parent, hypothesis, block_edit):
     src = f"pipeline/lib/{adopt}_blocks" if adopt else parent.block_dir
     _snapshot(src, blocks)
     cfg = apply_delta(parent.cfg, hypothesis.config_delta_json)
+    if adopt:
+        cfg = cfg.replace(model_type=adopt)   # family label follows the adopted blocks
     cfg.to_json(node_dir / "cfg.json")
 
     diff = ""

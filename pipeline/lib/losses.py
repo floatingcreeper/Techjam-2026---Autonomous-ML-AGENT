@@ -55,17 +55,25 @@ def bpr_pair(zp, zn):
 
 
 class PointLoss:
-    """BCE / logloss -- the baseline objective (Lever A ablation control)."""
+    """BCE / logloss -- the baseline objective (Lever A ablation control).
+
+    Lever E: if the trainer supplies per-row IPS weights in batch['w'] (loss_type='ips_bce' or
+    cfg.ips), each row's BCE is weighted -- down-weighting over-exposed items to counter bias."""
     mode = "point"
 
     def __init__(self, cfg):
         self.cfg = cfg
 
     def __call__(self, z, batch):
-        y = batch["y"]; B = len(z)
+        y = batch["y"]; w = batch.get("w"); B = len(z)
         p = sigmoid(z)
-        g = ((p - y) / B).astype(np.float32)
-        loss = float(-np.mean(y * np.log(p + 1e-9) + (1 - y) * np.log(1 - p + 1e-9)))
+        bce = y * np.log(p + 1e-9) + (1 - y) * np.log(1 - p + 1e-9)
+        if w is None:
+            g = ((p - y) / B).astype(np.float32)
+            loss = float(-np.mean(bce))
+        else:
+            g = (w * (p - y) / B).astype(np.float32)
+            loss = float(-np.mean(w * bce))
         return loss, g
 
 
@@ -91,7 +99,7 @@ class PairLoss:
 
 def make_loss(cfg):
     t = cfg.loss_type
-    if t == "bce":
+    if t in ("bce", "ips_bce"):          # ips_bce = BCE with trainer-supplied inverse-propensity weights
         return PointLoss(cfg)
     if t == "softmax_ce":
         return SoftmaxLoss(cfg)

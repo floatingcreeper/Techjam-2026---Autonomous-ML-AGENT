@@ -46,7 +46,8 @@ class MockDriver(LLMDriver):
         if schema is Hypothesis:
             self.i += 1
             if self.i >= len(self.moves):
-                return (Hypothesis(lever="A", statement="scripted moves exhausted",
+                return (Hypothesis(problem_identified="scripted moves exhausted",
+                                   lever="A", statement="scripted moves exhausted",
                                    rationale="mock", mutation_kind="config",
                                    config_delta_json="{}", expected_gain=0.0), u)
             return (self.moves[self.i]["hypothesis"], u)

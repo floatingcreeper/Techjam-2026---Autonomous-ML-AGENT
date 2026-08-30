@@ -9,9 +9,11 @@ Deep-Interest-Network sequence model), and finally **assembles them into an ense
 the baseline — writing a full research log and a validated submission with **zero human
 intervention**.
 
-> **Result of the reference run:** FM baseline `primary = 0.6015` → agent ensemble **`0.6050`**
-> (FM + DIN + LightGBM, rank-blended), submission passes `submit.py --check`, ~700 LLM tokens,
-> ~6 min wall-clock, 0 manual interventions.
+> **Result of the reference (scripted) run:** FM baseline `primary = 0.6015` → agent ensemble **`0.6050`**
+> (FM + DIN + LightGBM, rank-blended), submission passes `submit.py --check`, ~700 LLM tokens, ~6 min
+> wall-clock, **0 runtime interventions**. This run replays scripted `MockDriver` moves
+> (`tests/mock_moves.py`) to exercise the full machinery deterministically; **live LLM-driven autonomy
+> (Gemini) is evaluated separately** — see §14.
 
 This README is the **single source of truth**. It documents the system from the macro architecture
 down to every file and every important function, and explains the math and the reasoning behind each
