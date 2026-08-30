@@ -1,0 +1,1440 @@
+{
+  "nodes": {
+    "0": {
+      "id": 0,
+      "parent_id": null,
+      "operation": "baseline",
+      "summary": "models.fm_bpr reference baseline",
+      "config": {
+        "k": 16,
+        "lr": 0.001,
+        "l2": 1e-06,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0
+      },
+      "code_path": "models\\fm_bpr.py",
+      "status": "working",
+      "metrics": {
+        "valid": {
+          "GAUC": 0.6692768931388855,
+          "nDCG@5": 0.5368374586105347,
+          "primary": 0.6030571460723877,
+          "users": 22377,
+          "rows": 124909
+        }
+      },
+      "primary": 0.6030571460723877,
+      "error": null,
+      "debug_depth": 0,
+      "iteration": 0
+    },
+    "1": {
+      "id": 1,
+      "parent_id": null,
+      "operation": "draft",
+      "summary": "Increase the number of negative samples per positive sample during BPR training to 8.",
+      "config": {
+        "k": 16,
+        "lr": 0.001,
+        "l2": 1e-06,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "negative_samples": 8
+      },
+      "code_path": "models\\generated\\iter001_draft_increase_the_number_of_negative_samples.py",
+      "status": "buggy",
+      "metrics": null,
+      "primary": null,
+      "error": "ValueError: operands could not be broadcast together with shapes (8192,) (81920,) \nDiagnosis (from the repair agent): The error indicates a shape mismatch between two arrays being operated on. One array has a shape of (8192,), while the other has a shape of (81920,). This suggests that the operation is trying to broadcast arrays of incompatible sizes.\nSuggested fix: Ensure that the arrays being operated on have compatible shapes. This may involve reshaping or slicing one of the arrays to match the other.\nSuggested correction:\ndiff --git a/models/generated/iter001_draft_increase_the_number_of_negative_samples.py b/models/generated/iter001_draft_increase_the_number_of_negative_samples.py\nindex 1234567..89abcdef 100644\n--- a/models/generated/iter001_draft_increase_the_number_of_negative_samples.py\n+++ b/models/generated/iter001_draft_increase_the_number_of_negative_samples.py\n@@ -10,7 +10,7 @@ def bpr_loss(user_embeddings, item_embeddings, positive_item_indices, negative_item\n     positive_item_embeddings = item_embeddings[positive_item_indices]\n     negative_item_embeddings = item_embeddings[negative_item_indices]\n \n-    scores = torch.sum(positive_item_embeddings * negative_item_embeddings, dim=1)\n+    scores = torch.sum(positive_item_embeddings * negative_item_embeddings, dim=1, keepdim=True)\n     return torch.mean(-torch.log(torch.sigmoid(scores)))\n",
+      "debug_depth": 0,
+      "iteration": 1
+    },
+    "2": {
+      "id": 2,
+      "parent_id": 1,
+      "operation": "debug",
+      "summary": "Increase the number of negative samples per positive sample during BPR training to 16.",
+      "config": {
+        "k": 16,
+        "lr": 0.001,
+        "l2": 1e-06,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "negative_samples": 8
+      },
+      "code_path": "models\\generated\\iter002_debug_increase_the_number_of_negative_samples.py",
+      "status": "buggy",
+      "metrics": null,
+      "primary": null,
+      "error": "import failed: ImportError: cannot import name 'encode' from 'models.base' (C:\\Users\\jonat\\OneDrive\\Desktop\\desktopcoding\\desktopcodings\\Techjam-2026---Autonomous-ML-AGENT\\models\\base.py)",
+      "debug_depth": 1,
+      "iteration": 2
+    },
+    "3": {
+      "id": 3,
+      "parent_id": 2,
+      "operation": "debug",
+      "summary": "Increase the number of duration buckets to 32 and introduce interaction-based features.",
+      "config": {
+        "k": 10,
+        "lr": 0.01,
+        "l2": 0.01,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "negative_samples": 8
+      },
+      "code_path": "models\\generated\\iter003_debug_increase_the_number_of_duration_buckets.py",
+      "status": "working",
+      "metrics": {
+        "valid": {
+          "GAUC": 0.6119152903556824,
+          "nDCG@5": 0.5143877863883972,
+          "primary": 0.5631515383720398,
+          "users": 22377,
+          "rows": 124909
+        }
+      },
+      "primary": 0.5631515383720398,
+      "error": null,
+      "debug_depth": 2,
+      "iteration": 3
+    },
+    "4": {
+      "id": 4,
+      "parent_id": 0,
+      "operation": "improve",
+      "summary": "Introduce interaction-based features that capture the sequence of videos a user watches and their engagement levels.",
+      "config": {
+        "k": 16,
+        "lr": 0.001,
+        "l2": 1e-06,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0
+      },
+      "code_path": "models\\generated\\iter004_draft_introduce_interaction_based_features_tha.py",
+      "status": "working",
+      "metrics": {
+        "valid": {
+          "GAUC": 0.6671333909034729,
+          "nDCG@5": 0.5358057022094727,
+          "primary": 0.6014695167541504,
+          "users": 22377,
+          "rows": 124909
+        }
+      },
+      "primary": 0.6014695167541504,
+      "error": null,
+      "debug_depth": 0,
+      "iteration": 4
+    },
+    "5": {
+      "id": 5,
+      "parent_id": 0,
+      "operation": "improve",
+      "summary": "Increase the number of duration buckets to 32 and introduce interaction-based features that capture the sequence of videos a user watches and their engagement levels, but weight pairs by how badly they are currently ordered.",
+      "config": {
+        "k": 16,
+        "lr": 0.001,
+        "l2": 1e-06,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "duration_buckets": 32
+      },
+      "code_path": "models\\generated\\iter005_draft_increase_the_number_of_duration_buckets.py",
+      "status": "working",
+      "metrics": {
+        "valid": {
+          "GAUC": 0.6671333909034729,
+          "nDCG@5": 0.5358057022094727,
+          "primary": 0.6014695167541504,
+          "users": 22377,
+          "rows": 124909
+        }
+      },
+      "primary": 0.6014695167541504,
+      "error": null,
+      "debug_depth": 0,
+      "iteration": 5
+    },
+    "6": {
+      "id": 6,
+      "parent_id": 0,
+      "operation": "improve",
+      "summary": "Introduce a margin objective into the BPR training process to encourage the model to learn a better separation between positive and negative pairs.",
+      "config": {
+        "k": 16,
+        "lr": 0.001,
+        "l2": 1e-06,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "margin": 1.0
+      },
+      "code_path": "models\\generated\\iter006_draft_introduce_a_margin_objective_into_the_bp.py",
+      "status": "buggy",
+      "metrics": null,
+      "primary": null,
+      "error": "TypeError: object of type 'int' has no len()\nDiagnosis (from the repair agent): The error indicates that a function or method is being called with an integer where it expects an iterable (like a list or array). This is likely due to a missing or incorrect initialization of a variable that should be an iterable.\nSuggested fix: Ensure that the variable being passed to the function is initialized as an iterable (e.g., a list or array) before it is used.\nSuggested correction:\nnull",
+      "debug_depth": 0,
+      "iteration": 6
+    },
+    "7": {
+      "id": 7,
+      "parent_id": 6,
+      "operation": "debug",
+      "summary": "Introduce interaction-based features that capture the temporal order of user interactions with videos and their engagement levels.",
+      "config": {
+        "k": 16,
+        "lr": 0.001,
+        "l2": 1e-06,
+        "epochs": 40,
+        "patience": 10,
+        "batch_size": 1024,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "margin": 1.0
+      },
+      "code_path": "models\\generated\\iter007_debug_introduce_interaction_based_features_tha.py",
+      "status": "working",
+      "metrics": {
+        "valid": {
+          "GAUC": 0.6662425994873047,
+          "nDCG@5": 0.5351034998893738,
+          "primary": 0.6006730794906616,
+          "users": 22377,
+          "rows": 124909
+        }
+      },
+      "primary": 0.6006730794906616,
+      "error": null,
+      "debug_depth": 1,
+      "iteration": 7
+    },
+    "8": {
+      "id": 8,
+      "parent_id": 0,
+      "operation": "improve",
+      "summary": "Increase the number of duration buckets to 64 and introduce explicit crosses of dur_bucket with user_active_degree and with tab.",
+      "config": {
+        "k": 10,
+        "lr": 0.01,
+        "l2": 0.01,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0
+      },
+      "code_path": "models\\generated\\iter008_improve_increase_the_number_of_duration_buckets.py",
+      "status": "buggy",
+      "metrics": null,
+      "primary": null,
+      "error": "NameError: name 'encode' is not defined\nDiagnosis (from the repair agent): The error indicates that the 'encode' function is not defined in the current scope.\nSuggested fix: Import the 'encode' function from the appropriate module, typically 'sklearn.preprocessing'.\nSuggested correction:\nimport sklearn.preprocessing as preprocessing\n\n# Assuming 'encode' is used for encoding categorical variables\nencoded_tab = preprocessing.encode(tab)",
+      "debug_depth": 0,
+      "iteration": 8
+    },
+    "9": {
+      "id": 9,
+      "parent_id": 8,
+      "operation": "debug",
+      "summary": "Introduce a time-based feature that represents the time elapsed since the last interaction for each user.",
+      "config": {
+        "k": 16,
+        "lr": 0.001,
+        "l2": 1e-06,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0
+      },
+      "code_path": "models\\generated\\iter009_debug_introduce_a_time_based_feature_that_repr.py",
+      "status": "working",
+      "metrics": {
+        "valid": {
+          "GAUC": 0.6671333909034729,
+          "nDCG@5": 0.5358057022094727,
+          "primary": 0.6014695167541504,
+          "users": 22377,
+          "rows": 124909
+        }
+      },
+      "primary": 0.6014695167541504,
+      "error": null,
+      "debug_depth": 1,
+      "iteration": 9
+    },
+    "10": {
+      "id": 10,
+      "parent_id": 0,
+      "operation": "config",
+      "summary": "Introduce a new feature that represents the average engagement level of a user over the last 30 days.",
+      "config": {
+        "k": 16,
+        "lr": 0.001,
+        "l2": 1e-06,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": [
+          "user_active_degree"
+        ]
+      },
+      "code_path": "models\\fm_bpr.py",
+      "status": "working",
+      "metrics": {
+        "valid": {
+          "GAUC": 0.6692768931388855,
+          "nDCG@5": 0.5368374586105347,
+          "primary": 0.6030571460723877,
+          "users": 22377,
+          "rows": 124909
+        }
+      },
+      "primary": 0.6030571460723877,
+      "error": null,
+      "debug_depth": 0,
+      "iteration": 10
+    },
+    "11": {
+      "id": 11,
+      "parent_id": 0,
+      "operation": "config",
+      "summary": "Increase the number of interaction-based features by introducing a new feature that captures the distribution of user engagement levels across different time intervals (e.g., morning, afternoon, evening).",
+      "config": {
+        "k": 16,
+        "lr": 0.001,
+        "l2": 1e-06,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": [
+          "user_active_degree"
+        ]
+      },
+      "code_path": "models\\fm_bpr.py",
+      "status": "buggy",
+      "metrics": null,
+      "primary": null,
+      "error": "Identical resulting config already tried and rejected in iteration 10 \u2014 skipped without re-running training (this pipeline is deterministic given a fixed seed, so re-running would reproduce the exact same result, not new information).",
+      "debug_depth": 0,
+      "iteration": 11
+    },
+    "12": {
+      "id": 12,
+      "parent_id": 11,
+      "operation": "debug",
+      "summary": "Introduce a new feature that captures the average engagement level of a user over the last 7 days.",
+      "config": {
+        "k": 8,
+        "lr": 0.1,
+        "l2": 0.01,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": [
+          "user_active_degree"
+        ]
+      },
+      "code_path": "models\\generated\\iter012_debug_introduce_a_new_feature_that_captures_th.py",
+      "status": "buggy",
+      "metrics": null,
+      "primary": null,
+      "error": "NameError: name 'encode' is not defined\nDiagnosis (from the repair agent): The error indicates that the 'encode' function is not defined in the current scope.\nSuggested fix: Import the 'encode' function from the appropriate module, typically 'base64' for encoding purposes.\nSuggested correction:\nimport base64\n\n# Ensure 'encode' is used correctly in your code, e.g.,\n# encoded_data = base64.encode(data)",
+      "debug_depth": 1,
+      "iteration": 12
+    },
+    "13": {
+      "id": 13,
+      "parent_id": 12,
+      "operation": "debug",
+      "summary": "Introduce a new feature that captures the distribution of user engagement levels across different content categories.",
+      "config": {
+        "k": 8,
+        "lr": 0.1,
+        "l2": 0.01,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": [
+          "user_active_degree"
+        ]
+      },
+      "code_path": "models\\generated\\iter013_debug_introduce_a_new_feature_that_captures_th.py",
+      "status": "buggy",
+      "metrics": null,
+      "primary": null,
+      "error": "NameError: name 'encode' is not defined\nDiagnosis (from the repair agent): The error indicates that the 'encode' function is not defined in the current scope.\nSuggested fix: Import the 'encode' function from the appropriate module, typically 'base64' for encoding purposes.\nSuggested correction:\nimport base64",
+      "debug_depth": 2,
+      "iteration": 13
+    },
+    "14": {
+      "id": 14,
+      "parent_id": 13,
+      "operation": "debug",
+      "summary": "Introduce a new feature that captures the frequency of user interactions with videos based on user age and gender demographics.",
+      "config": {
+        "k": 8,
+        "lr": 0.1,
+        "l2": 0.01,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": [
+          "user_active_degree"
+        ]
+      },
+      "code_path": "models\\generated\\iter014_debug_introduce_a_new_feature_that_captures_th.py",
+      "status": "buggy",
+      "metrics": null,
+      "primary": null,
+      "error": "NameError: name 'encode' is not defined\nDiagnosis (from the repair agent): The error indicates that the 'encode' function is not defined in the current scope.\nSuggested fix: The 'encode' function is likely a typo and should be 'encode_user_age_gender'. Assuming this is a custom function, ensure it is defined before it is called.\nSuggested correction:\nAdd the missing function definition or correct the function call.",
+      "debug_depth": 3,
+      "iteration": 14
+    },
+    "15": {
+      "id": 15,
+      "parent_id": 0,
+      "operation": "config",
+      "summary": "Increase the regularization strength of the Factorization Machine to prevent overfitting.",
+      "config": {
+        "k": 16,
+        "lr": 0.001,
+        "l2": 0.01,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0
+      },
+      "code_path": "models\\fm_bpr.py",
+      "status": "working",
+      "metrics": {
+        "valid": {
+          "GAUC": 0.6321523785591125,
+          "nDCG@5": 0.5215931534767151,
+          "primary": 0.5768727660179138,
+          "users": 22377,
+          "rows": 124909
+        }
+      },
+      "primary": 0.5768727660179138,
+      "error": null,
+      "debug_depth": 0,
+      "iteration": 15
+    },
+    "16": {
+      "id": 16,
+      "parent_id": 0,
+      "operation": "config",
+      "summary": "Introduce a new feature that captures the frequency of user interactions with videos based on the time of day.",
+      "config": {
+        "k": 16,
+        "lr": 0.001,
+        "l2": 1e-06,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": [
+          "user_active_degree"
+        ]
+      },
+      "code_path": "models\\fm_bpr.py",
+      "status": "buggy",
+      "metrics": null,
+      "primary": null,
+      "error": "Identical resulting config already tried and rejected in iteration 11 \u2014 skipped without re-running training (this pipeline is deterministic given a fixed seed, so re-running would reproduce the exact same result, not new information).",
+      "debug_depth": 0,
+      "iteration": 16
+    },
+    "17": {
+      "id": 17,
+      "parent_id": 16,
+      "operation": "debug",
+      "summary": "Introduce a new feature that captures the frequency of user interactions with videos based on user location demographics.",
+      "config": {
+        "k": 10,
+        "lr": 0.01,
+        "l2": 0.0001,
+        "epochs": 10,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": [
+          "user_active_degree"
+        ]
+      },
+      "code_path": "models\\generated\\iter017_debug_introduce_a_new_feature_that_captures_th.py",
+      "status": "buggy",
+      "metrics": null,
+      "primary": null,
+      "error": "NameError: name 'encode' is not defined\nDiagnosis (from the repair agent): The error indicates that the 'encode' function is not defined in the current scope.\nSuggested fix: Import the 'encode' function from the appropriate module.\nSuggested correction:\nimport some_module\n\n# Your existing code here",
+      "debug_depth": 1,
+      "iteration": 17
+    },
+    "18": {
+      "id": 18,
+      "parent_id": 17,
+      "operation": "debug",
+      "summary": "Increase the number of interaction-based features by introducing a new feature that captures the frequency of user interactions with videos based on user age and gender demographics.",
+      "config": {
+        "k": 16,
+        "lr": 0.01,
+        "l2": 0.01,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": [
+          "user_active_degree"
+        ]
+      },
+      "code_path": "models\\generated\\iter018_debug_increase_the_number_of_interaction_based.py",
+      "status": "buggy",
+      "metrics": null,
+      "primary": null,
+      "error": "NameError: name 'B' is not defined\nDiagnosis (from the repair agent): The variable 'B' is not defined in the provided code snippet.\nSuggested fix: Define the variable 'B' before using it.\nSuggested correction:\nAdd the definition of 'B' at the beginning of the relevant section of the code.",
+      "debug_depth": 2,
+      "iteration": 18
+    },
+    "19": {
+      "id": 19,
+      "parent_id": 18,
+      "operation": "debug",
+      "summary": "Introduce a new feature that captures the frequency of user interactions with videos based on video content category.",
+      "config": {
+        "k": 10,
+        "lr": 0.01,
+        "l2": 0.1,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": [
+          "user_active_degree"
+        ]
+      },
+      "code_path": "models\\generated\\iter019_debug_introduce_a_new_feature_that_captures_th.py",
+      "status": "buggy",
+      "metrics": null,
+      "primary": null,
+      "error": "NameError: name 'encode' is not defined\nDiagnosis (from the repair agent): The error indicates that the 'encode' function is not defined in the current scope.\nSuggested fix: Import the 'encode' function from the appropriate module.\nSuggested correction:\nimport some_module\n\n# Rest of the code",
+      "debug_depth": 3,
+      "iteration": 19
+    },
+    "20": {
+      "id": 20,
+      "parent_id": 0,
+      "operation": "config",
+      "summary": "Introduce a new feature that captures the frequency of user interactions with videos based on user activity patterns (e.g., time spent watching, number of breaks between interactions).",
+      "config": {
+        "k": 16,
+        "lr": 0.001,
+        "l2": 1e-06,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": [
+          "user_active_degree"
+        ]
+      },
+      "code_path": "models\\fm_bpr.py",
+      "status": "buggy",
+      "metrics": null,
+      "primary": null,
+      "error": "Identical resulting config already tried and rejected in iteration 16 \u2014 skipped without re-running training (this pipeline is deterministic given a fixed seed, so re-running would reproduce the exact same result, not new information).",
+      "debug_depth": 0,
+      "iteration": 20
+    },
+    "21": {
+      "id": 21,
+      "parent_id": 20,
+      "operation": "debug",
+      "summary": "Introduce a new feature that captures the frequency of user interactions with videos based on user device type (e.g., mobile, desktop).",
+      "config": {
+        "k": 10,
+        "lr": 0.01,
+        "l2": 1e-05,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": [
+          "user_active_degree"
+        ]
+      },
+      "code_path": "models\\generated\\iter021_debug_introduce_a_new_feature_that_captures_th.py",
+      "status": "buggy",
+      "metrics": null,
+      "primary": null,
+      "error": "NameError: name 'encode' is not defined\nDiagnosis (from the repair agent): The error indicates that the 'encode' function is not defined in the current scope.\nSuggested fix: The 'encode' function is likely intended to be a custom function or a built-in function from a library that was not imported. Ensure that the 'encode' function is either defined in the code or imported from the appropriate library.\nSuggested correction:\nimport some_library\n\n# Ensure 'encode' is defined or imported\n# For example:\n# def encode(data):\n#     # implementation\n\n# or\n\n# from some_library import encode",
+      "debug_depth": 1,
+      "iteration": 21
+    },
+    "22": {
+      "id": 22,
+      "parent_id": 21,
+      "operation": "debug",
+      "summary": "Add a feature that captures the frequency of user interactions with videos based on user device type (e.g., mobile, desktop).",
+      "config": {
+        "k": 8,
+        "lr": 0.1,
+        "l2": 0.01,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": [
+          "user_active_degree"
+        ]
+      },
+      "code_path": "models\\generated\\iter022_debug_add_a_feature_that_captures_the_frequenc.py",
+      "status": "buggy",
+      "metrics": null,
+      "primary": null,
+      "error": "NameError: name 'encode' is not defined\nDiagnosis (from the repair agent): The error indicates that the 'encode' function is not defined in the current scope.\nSuggested fix: The 'encode' function is likely intended to be a method of a class or a function from a module that was not imported. We need to import the correct module or define the 'encode' function if it's custom.\nSuggested correction:\nimport some_module\n\n# or if 'encode' is a custom function\n\ndef encode(data):\n    # implementation of encode function\n    pass",
+      "debug_depth": 2,
+      "iteration": 22
+    },
+    "23": {
+      "id": 23,
+      "parent_id": 22,
+      "operation": "debug",
+      "summary": "Introduce a new feature that captures the frequency of user interactions with videos based on user age and geographic location demographics.",
+      "config": {
+        "k": 16,
+        "lr": 0.01,
+        "l2": 0.01,
+        "epochs": 10,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": [
+          "user_active_degree"
+        ]
+      },
+      "code_path": "models\\generated\\iter023_debug_introduce_a_new_feature_that_captures_th.py",
+      "status": "buggy",
+      "metrics": null,
+      "primary": null,
+      "error": "NameError: name 'encode' is not defined\nDiagnosis (from the repair agent): The error indicates that the 'encode' function is not defined in the current scope.\nSuggested fix: The 'encode' function is likely intended to be a custom function or a function from a library that is not imported. Ensure that the function is defined or the necessary library is imported.\nSuggested correction:\nimport some_library\n\n# Ensure 'encode' is defined or imported\n# For example:\n# def encode(data):\n#     # implementation\n\n# or\n\n# from some_library import encode",
+      "debug_depth": 3,
+      "iteration": 23
+    },
+    "24": {
+      "id": 24,
+      "parent_id": 0,
+      "operation": "improve",
+      "summary": "Review and optimize the existing set of features to ensure they are relevant and well-engineered.",
+      "config": {
+        "k": 10,
+        "lr": 0.01,
+        "l2": 0.01,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0
+      },
+      "code_path": "models\\generated\\iter024_improve_review_and_optimize_the_existing_set_of.py",
+      "status": "buggy",
+      "metrics": null,
+      "primary": null,
+      "error": "NameError: name 'encode' is not defined\nDiagnosis (from the repair agent): The error indicates that the 'encode' function is not defined in the current scope.\nSuggested fix: Import the 'encode' function from the appropriate module, typically 'base64' for encoding purposes.\nSuggested correction:\nimport base64\n\n# Ensure this line is where 'encode' is used\nencoded_data = base64.encode(data)",
+      "debug_depth": 0,
+      "iteration": 24
+    },
+    "25": {
+      "id": 25,
+      "parent_id": 24,
+      "operation": "debug",
+      "summary": "Review the existing set of features to identify which ones are most important and consider scaling or adjusting their parameters to enhance their relevance and effectiveness.",
+      "config": {
+        "k": 16,
+        "lr": 0.01,
+        "l2": 0.01,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0
+      },
+      "code_path": "models\\generated\\iter025_debug_review_the_existing_set_of_features_to_i.py",
+      "status": "buggy",
+      "metrics": null,
+      "primary": null,
+      "error": "NameError: name 'encode' is not defined\nDiagnosis (from the repair agent): The error indicates that the 'encode' function is not defined in the current scope.\nSuggested fix: The 'encode' function is likely intended to be a method from the 'sklearn.preprocessing' module. To fix this, you need to import the 'LabelEncoder' class from 'sklearn.preprocessing' and use it appropriately.\nSuggested correction:\nfrom sklearn.preprocessing import LabelEncoder\n\n# Example usage of LabelEncoder\nlabel_encoder = LabelEncoder()\nencoded_features = label_encoder.fit_transform(your_feature_column)",
+      "debug_depth": 1,
+      "iteration": 25
+    },
+    "26": {
+      "id": 26,
+      "parent_id": 25,
+      "operation": "debug",
+      "summary": "Introduce a new feature that captures the average engagement level of users based on their age demographic.",
+      "config": {
+        "k": 16,
+        "lr": 0.01,
+        "l2": 0.1,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0
+      },
+      "code_path": "models\\generated\\iter026_debug_introduce_a_new_feature_that_captures_th.py",
+      "status": "buggy",
+      "metrics": null,
+      "primary": null,
+      "error": "NameError: name 'encode' is not defined\nDiagnosis (from the repair agent): The 'encode' function is not defined in the provided code snippet.\nSuggested fix: The 'encode' function is likely intended to be a method of a class or a function from a library like pandas or sklearn. Ensure that the correct library is imported or that the function is defined in the code.\nSuggested correction:\nimport pandas as pd\n\n# Assuming 'df' is a DataFrame and 'column_name' is the column to encode\ndf['encoded_column'] = df['column_name'].apply(lambda x: encode(x))",
+      "debug_depth": 2,
+      "iteration": 26
+    },
+    "27": {
+      "id": 27,
+      "parent_id": 26,
+      "operation": "debug",
+      "summary": "Introduce a new feature that captures the frequency of user interactions with videos based on the video's popularity (e.g., view count, likes, shares).",
+      "config": {
+        "k": 16,
+        "lr": 0.01,
+        "l2": 0.1,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "prior": 20.0
+      },
+      "code_path": "models\\generated\\iter027_debug_introduce_a_new_feature_that_captures_th.py",
+      "status": "working",
+      "metrics": {
+        "valid": {
+          "GAUC": 0.6041483879089355,
+          "nDCG@5": 0.5114016532897949,
+          "primary": 0.5577750205993652,
+          "users": 22377,
+          "rows": 124909
+        }
+      },
+      "primary": 0.5577750205993652,
+      "error": null,
+      "debug_depth": 3,
+      "iteration": 27
+    },
+    "28": {
+      "id": 28,
+      "parent_id": 0,
+      "operation": "improve",
+      "summary": "Replace the default encoding method with the `LabelEncoder` from `sklearn.preprocessing` for both user and item features.",
+      "config": {
+        "k": 8,
+        "lr": 0.1,
+        "l2": 0.01,
+        "epochs": 10,
+        "patience": 3,
+        "batch_size": 256,
+        "seed": 0,
+        "pairs_per_pos": 2.0
+      },
+      "code_path": "models\\generated\\iter028_improve_replace_the_default_encoding_method_with.py",
+      "status": "working",
+      "metrics": {
+        "valid": {
+          "GAUC": 0.5909006595611572,
+          "nDCG@5": 0.5064275860786438,
+          "primary": 0.5486640930175781,
+          "users": 22377,
+          "rows": 124909
+        }
+      },
+      "primary": 0.5486640930175781,
+      "error": null,
+      "debug_depth": 0,
+      "iteration": 28
+    },
+    "29": {
+      "id": 29,
+      "parent_id": 0,
+      "operation": "improve",
+      "summary": "Introduce a new feature that captures the frequency of user interactions with videos based on the time of day (e.g., morning, afternoon, evening).",
+      "config": {
+        "k": 10,
+        "lr": 0.01,
+        "l2": 0.1,
+        "epochs": 10,
+        "patience": 3,
+        "batch_size": 1024,
+        "seed": 0,
+        "pairs_per_pos": 2.0
+      },
+      "code_path": "models\\generated\\iter029_improve_introduce_a_new_feature_that_captures_th.py",
+      "status": "working",
+      "metrics": {
+        "valid": {
+          "GAUC": 0.5918516516685486,
+          "nDCG@5": 0.5067753791809082,
+          "primary": 0.5493135452270508,
+          "users": 22377,
+          "rows": 124909
+        }
+      },
+      "primary": 0.5493135452270508,
+      "error": null,
+      "debug_depth": 0,
+      "iteration": 29
+    },
+    "30": {
+      "id": 30,
+      "parent_id": 0,
+      "operation": "improve",
+      "summary": "Review the existing feature set to identify if any features can be scaled or adjusted to enhance their relevance and effectiveness.",
+      "config": {
+        "k": 10,
+        "lr": 0.01,
+        "l2": 0.01,
+        "epochs": 10,
+        "patience": 5,
+        "batch_size": 1024,
+        "seed": 0,
+        "pairs_per_pos": 2.0
+      },
+      "code_path": "models\\generated\\iter030_improve_review_the_existing_feature_set_to_ident.py",
+      "status": "working",
+      "metrics": {
+        "valid": {
+          "GAUC": 0.6121728420257568,
+          "nDCG@5": 0.5149371027946472,
+          "primary": 0.5635550022125244,
+          "users": 22377,
+          "rows": 124909
+        }
+      },
+      "primary": 0.5635550022125244,
+      "error": null,
+      "debug_depth": 0,
+      "iteration": 30
+    },
+    "31": {
+      "id": 31,
+      "parent_id": 0,
+      "operation": "config",
+      "summary": "Introduce a new feature that captures the frequency of user interactions with videos based on their user's gender.",
+      "config": {
+        "k": 16,
+        "lr": 0.001,
+        "l2": 1e-06,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": [
+          "user_active_degree"
+        ]
+      },
+      "code_path": "models\\fm_bpr.py",
+      "status": "buggy",
+      "metrics": null,
+      "primary": null,
+      "error": "config action changed only ['extra_fields'], none of which generated_fm_bpr declares in its defaults (['batch_size', 'data_dir', 'epochs', 'k', 'l2', 'lr', 'neg_candidates', 'pairs_per_pos', 'patience', 'seed']) \u2014 it would be merged and ignored, reproducing the parent's score exactly. Skipped without training.",
+      "debug_depth": 0,
+      "iteration": 31
+    },
+    "32": {
+      "id": 32,
+      "parent_id": 31,
+      "operation": "debug",
+      "summary": "Review and simplify the existing set of features to reduce redundancy and focus on essential features that have the most impact.",
+      "config": {
+        "k": 16,
+        "lr": 0.001,
+        "l2": 1e-06,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": [
+          "user_active_degree"
+        ],
+        "prior": 20.0
+      },
+      "code_path": "models\\generated\\iter032_debug_review_and_simplify_the_existing_set_of.py",
+      "status": "working",
+      "metrics": {
+        "valid": {
+          "GAUC": 0.6671333909034729,
+          "nDCG@5": 0.5358057022094727,
+          "primary": 0.6014695167541504,
+          "users": 22377,
+          "rows": 124909
+        }
+      },
+      "primary": 0.6014695167541504,
+      "error": null,
+      "debug_depth": 1,
+      "iteration": 32
+    },
+    "33": {
+      "id": 33,
+      "parent_id": 0,
+      "operation": "improve",
+      "summary": "Review the existing feature set for redundancy and remove any features that do not contribute to the model's performance.",
+      "config": {
+        "k": 10,
+        "lr": 0.01,
+        "l2": 0.01,
+        "epochs": 10,
+        "patience": 5,
+        "batch_size": 256,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "prior": 20.0
+      },
+      "code_path": "models\\generated\\iter033_improve_review_the_existing_feature_set_for_redu.py",
+      "status": "working",
+      "metrics": {
+        "valid": {
+          "GAUC": 0.6109827756881714,
+          "nDCG@5": 0.5155332088470459,
+          "primary": 0.5632579922676086,
+          "users": 22377,
+          "rows": 124909
+        }
+      },
+      "primary": 0.5632579922676086,
+      "error": null,
+      "debug_depth": 0,
+      "iteration": 33
+    },
+    "34": {
+      "id": 34,
+      "parent_id": 0,
+      "operation": "config",
+      "summary": "Introduce a new feature that captures the frequency of user interactions with videos based on the video's category.",
+      "config": {
+        "k": 16,
+        "lr": 0.001,
+        "l2": 1e-06,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": [
+          "video_type"
+        ]
+      },
+      "code_path": "models\\fm_bpr.py",
+      "status": "buggy",
+      "metrics": null,
+      "primary": null,
+      "error": "config action changed only ['extra_fields'], none of which generated_fm_bpr declares in its defaults (['batch_size', 'data_dir', 'epochs', 'k', 'l2', 'lr', 'neg_candidates', 'pairs_per_pos', 'patience', 'seed']) \u2014 it would be merged and ignored, reproducing the parent's score exactly. Skipped without training.",
+      "debug_depth": 0,
+      "iteration": 34
+    },
+    "35": {
+      "id": 35,
+      "parent_id": 34,
+      "operation": "debug",
+      "summary": "Introduce a new feature that captures the user's interaction frequency with videos based on the device they are using (e.g., mobile, desktop, tablet).",
+      "config": {
+        "k": 10,
+        "lr": 0.01,
+        "l2": 0.01,
+        "epochs": 10,
+        "patience": 3,
+        "batch_size": 256,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": [
+          "video_type"
+        ]
+      },
+      "code_path": "models\\generated\\iter035_debug_introduce_a_new_feature_that_captures_th.py",
+      "status": "working",
+      "metrics": {
+        "train": {
+          "GAUC": 0.6276026964187622,
+          "nDCG@5": 0.5207316279411316,
+          "primary": 0.5741671323776245,
+          "users": 26210,
+          "rows": 1141112
+        },
+        "valid": {
+          "GAUC": 0.6109827756881714,
+          "nDCG@5": 0.5155332088470459,
+          "primary": 0.5632579922676086,
+          "users": 22377,
+          "rows": 124909
+        }
+      },
+      "primary": 0.5632579922676086,
+      "error": null,
+      "debug_depth": 1,
+      "iteration": 35
+    },
+    "36": {
+      "id": 36,
+      "parent_id": 0,
+      "operation": "config",
+      "summary": "Introduce a new feature that captures the frequency of user interactions with videos based on the user's age group.",
+      "config": {
+        "k": 16,
+        "lr": 0.001,
+        "l2": 1e-06,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": [
+          "user_active_degree"
+        ]
+      },
+      "code_path": "models\\fm_bpr.py",
+      "status": "buggy",
+      "metrics": null,
+      "primary": null,
+      "error": "Identical resulting config already tried and rejected in iteration 31 \u2014 skipped without re-running training (this pipeline is deterministic given a fixed seed, so re-running would reproduce the exact same result, not new information).",
+      "debug_depth": 0,
+      "iteration": 36
+    },
+    "37": {
+      "id": 37,
+      "parent_id": 36,
+      "operation": "debug",
+      "summary": "Introduce a new feature that captures the frequency of user interactions with videos based on the user's device type (e.g., mobile, desktop, tablet).",
+      "config": {
+        "k": 8,
+        "lr": 0.01,
+        "l2": 0.0,
+        "epochs": 10,
+        "patience": 5,
+        "batch_size": 256,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": [
+          "user_active_degree"
+        ],
+        "prior": 20.0
+      },
+      "code_path": "models\\generated\\iter037_debug_introduce_a_new_feature_that_captures_th.py",
+      "status": "working",
+      "metrics": {
+        "valid": {
+          "GAUC": 0.6343242526054382,
+          "nDCG@5": 0.5207674503326416,
+          "primary": 0.5775458812713623,
+          "users": 22377,
+          "rows": 124909
+        }
+      },
+      "primary": 0.5775458812713623,
+      "error": null,
+      "debug_depth": 1,
+      "iteration": 37
+    },
+    "38": {
+      "id": 38,
+      "parent_id": 0,
+      "operation": "config",
+      "summary": "Introduce a new feature that captures the frequency of user interactions with videos based on the user's country of residence.",
+      "config": {
+        "k": 16,
+        "lr": 0.001,
+        "l2": 1e-06,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": [
+          "user_active_degree"
+        ]
+      },
+      "code_path": "models\\fm_bpr.py",
+      "status": "buggy",
+      "metrics": null,
+      "primary": null,
+      "error": "Identical resulting config already tried and rejected in iteration 36 \u2014 skipped without re-running training (this pipeline is deterministic given a fixed seed, so re-running would reproduce the exact same result, not new information).",
+      "debug_depth": 0,
+      "iteration": 38
+    },
+    "39": {
+      "id": 39,
+      "parent_id": 38,
+      "operation": "debug",
+      "summary": "Introduce a new feature that captures the user's interaction frequency with videos based on the time of day they interact with them.",
+      "config": {
+        "k": 16,
+        "lr": 0.01,
+        "l2": 0.01,
+        "epochs": 10,
+        "patience": 3,
+        "batch_size": 256,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": [
+          "user_active_degree"
+        ]
+      },
+      "code_path": "models\\generated\\iter039_debug_introduce_a_new_feature_that_captures_th.py",
+      "status": "working",
+      "metrics": {
+        "train": {
+          "GAUC": 0.62770015001297,
+          "nDCG@5": 0.5212262272834778,
+          "primary": 0.5744631886482239,
+          "users": 26210,
+          "rows": 1141112
+        },
+        "valid": {
+          "GAUC": 0.6106000542640686,
+          "nDCG@5": 0.5154741406440735,
+          "primary": 0.563037097454071,
+          "users": 22377,
+          "rows": 124909
+        }
+      },
+      "primary": 0.563037097454071,
+      "error": null,
+      "debug_depth": 1,
+      "iteration": 39
+    },
+    "40": {
+      "id": 40,
+      "parent_id": 0,
+      "operation": "improve",
+      "summary": "Review and filter out redundant features and configurations that have already been tried to avoid repeated failures and to increase the likelihood of finding new, impactful changes.",
+      "config": {
+        "k": 10,
+        "lr": 0.01,
+        "l2": 0.0,
+        "epochs": 10,
+        "patience": 3,
+        "batch_size": 256,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "prior": 20.0
+      },
+      "code_path": "models\\generated\\iter040_improve_review_and_filter_out_redundant_features.py",
+      "status": "working",
+      "metrics": {
+        "valid": {
+          "GAUC": 0.6291460990905762,
+          "nDCG@5": 0.5188370943069458,
+          "primary": 0.573991596698761,
+          "users": 22377,
+          "rows": 124909
+        }
+      },
+      "primary": 0.573991596698761,
+      "error": null,
+      "debug_depth": 0,
+      "iteration": 40
+    },
+    "41": {
+      "id": 41,
+      "parent_id": 0,
+      "operation": "config",
+      "summary": "Review and simplify the existing feature set to reduce complexity and potentially improve model performance.",
+      "config": {
+        "k": 16,
+        "lr": 0.001,
+        "l2": 1e-06,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": []
+      },
+      "code_path": "models\\fm_bpr.py",
+      "status": "buggy",
+      "metrics": null,
+      "primary": null,
+      "error": "config action changed only ['extra_fields'], none of which generated_fm_bpr declares in its defaults (['batch_size', 'data_dir', 'epochs', 'k', 'l2', 'lr', 'neg_candidates', 'pairs_per_pos', 'patience', 'seed']) \u2014 it would be merged and ignored, reproducing the parent's score exactly. Skipped without training.",
+      "debug_depth": 0,
+      "iteration": 41
+    },
+    "42": {
+      "id": 42,
+      "parent_id": 41,
+      "operation": "debug",
+      "summary": "Simplify the feature set by removing redundant or low-impact features.",
+      "config": {
+        "k": 16,
+        "lr": 0.001,
+        "l2": 1e-06,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": [],
+        "prior": 20.0
+      },
+      "code_path": "models\\generated\\iter042_debug_simplify_the_feature_set_by_removing_red.py",
+      "status": "working",
+      "metrics": {
+        "valid": {
+          "GAUC": 0.6671333909034729,
+          "nDCG@5": 0.5358057022094727,
+          "primary": 0.6014695167541504,
+          "users": 22377,
+          "rows": 124909
+        }
+      },
+      "primary": 0.6014695167541504,
+      "error": null,
+      "debug_depth": 1,
+      "iteration": 42
+    },
+    "43": {
+      "id": 43,
+      "parent_id": 0,
+      "operation": "config",
+      "summary": "Introduce a new feature that captures the frequency of user interactions with videos based on the user's gender.",
+      "config": {
+        "k": 16,
+        "lr": 0.001,
+        "l2": 1e-06,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": [
+          "user_active_degree"
+        ]
+      },
+      "code_path": "models\\fm_bpr.py",
+      "status": "buggy",
+      "metrics": null,
+      "primary": null,
+      "error": "Identical resulting config already tried and rejected in iteration 34 \u2014 skipped without re-running training (this pipeline is deterministic given a fixed seed, so re-running would reproduce the exact same result, not new information).",
+      "debug_depth": 0,
+      "iteration": 43
+    },
+    "44": {
+      "id": 44,
+      "parent_id": 43,
+      "operation": "debug",
+      "summary": "Introduce a new feature that captures the frequency of user interactions with videos based on the type of video content they interact with (e.g., educational, entertainment, news).",
+      "config": {
+        "k": 10,
+        "lr": 0.01,
+        "l2": 0.01,
+        "epochs": 10,
+        "patience": 5,
+        "batch_size": 256,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": [
+          "user_active_degree"
+        ]
+      },
+      "code_path": "models\\generated\\iter044_debug_introduce_a_new_feature_that_captures_th.py",
+      "status": "working",
+      "metrics": {
+        "valid": {
+          "GAUC": 0.6109827756881714,
+          "nDCG@5": 0.5155332088470459,
+          "primary": 0.5632579922676086,
+          "users": 22377,
+          "rows": 124909
+        }
+      },
+      "primary": 0.5632579922676086,
+      "error": null,
+      "debug_depth": 1,
+      "iteration": 44
+    },
+    "45": {
+      "id": 45,
+      "parent_id": 0,
+      "operation": "config",
+      "summary": "Remove the average engagement level of a user over the last 30 days feature.",
+      "config": {
+        "k": 16,
+        "lr": 0.001,
+        "l2": 1e-06,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": []
+      },
+      "code_path": "models\\fm_bpr.py",
+      "status": "buggy",
+      "metrics": null,
+      "primary": null,
+      "error": "Identical resulting config already tried and rejected in iteration 41 \u2014 skipped without re-running training (this pipeline is deterministic given a fixed seed, so re-running would reproduce the exact same result, not new information).",
+      "debug_depth": 0,
+      "iteration": 45
+    },
+    "46": {
+      "id": 46,
+      "parent_id": 45,
+      "operation": "debug",
+      "summary": "Remove the average engagement level of a user over the last 30 days feature.",
+      "config": {
+        "k": 16,
+        "lr": 0.001,
+        "l2": 1e-06,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": [],
+        "prior": 20.0
+      },
+      "code_path": "models\\generated\\iter046_debug_remove_the_average_engagement_level_of_a.py",
+      "status": "working",
+      "metrics": {
+        "valid": {
+          "GAUC": 0.6671333909034729,
+          "nDCG@5": 0.5358057022094727,
+          "primary": 0.6014695167541504,
+          "users": 22377,
+          "rows": 124909
+        }
+      },
+      "primary": 0.6014695167541504,
+      "error": null,
+      "debug_depth": 1,
+      "iteration": 46
+    },
+    "47": {
+      "id": 47,
+      "parent_id": 0,
+      "operation": "config",
+      "summary": "Introduce a new feature that captures the interaction frequency of users with videos based on the platform's day of the week.",
+      "config": {
+        "k": 16,
+        "lr": 0.001,
+        "l2": 1e-06,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": [
+          "user_active_degree"
+        ]
+      },
+      "code_path": "models\\fm_bpr.py",
+      "status": "buggy",
+      "metrics": null,
+      "primary": null,
+      "error": "Identical resulting config already tried and rejected in iteration 43 \u2014 skipped without re-running training (this pipeline is deterministic given a fixed seed, so re-running would reproduce the exact same result, not new information).",
+      "debug_depth": 0,
+      "iteration": 47
+    },
+    "48": {
+      "id": 48,
+      "parent_id": 47,
+      "operation": "debug",
+      "summary": "Introduce a new feature that captures the frequency of user interactions with videos based on the user's age group.",
+      "config": {
+        "k": 16,
+        "lr": 0.001,
+        "l2": 1e-06,
+        "epochs": 40,
+        "patience": 4,
+        "batch_size": 8192,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": [
+          "user_active_degree"
+        ]
+      },
+      "code_path": "models\\generated\\iter048_debug_introduce_a_new_feature_that_captures_th.py",
+      "status": "buggy",
+      "metrics": null,
+      "primary": null,
+      "error": "import failed: ImportError: cannot import name 'B' from 'models.base' (C:\\Users\\jonat\\OneDrive\\Desktop\\desktopcoding\\desktopcodings\\Techjam-2026---Autonomous-ML-AGENT\\models\\base.py)",
+      "debug_depth": 1,
+      "iteration": 48
+    },
+    "49": {
+      "id": 49,
+      "parent_id": 48,
+      "operation": "debug",
+      "summary": "Introduce a new feature that captures the frequency of user interactions with videos based on the user's location.",
+      "config": {
+        "k": 10,
+        "lr": 0.01,
+        "l2": 0.1,
+        "epochs": 10,
+        "patience": 3,
+        "batch_size": 256,
+        "seed": 0,
+        "pairs_per_pos": 2.0,
+        "extra_fields": [
+          "user_active_degree"
+        ]
+      },
+      "code_path": "models\\generated\\iter049_debug_introduce_a_new_feature_that_captures_th.py",
+      "status": "working",
+      "metrics": {
+        "valid": {
+          "GAUC": 0.582914412021637,
+          "nDCG@5": 0.5038858652114868,
+          "primary": 0.5434001684188843,
+          "users": 22377,
+          "rows": 124909
+        }
+      },
+      "primary": 0.5434001684188843,
+      "error": null,
+      "debug_depth": 2,
+      "iteration": 49
+    }
+  },
+  "next_id": 50
+}

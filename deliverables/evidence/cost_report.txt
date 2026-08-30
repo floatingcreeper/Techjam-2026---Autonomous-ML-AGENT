@@ -1,0 +1,11 @@
+Resource consumption (runs\token_ledger.jsonl):
+  LLM calls: 593 (4 failed)
+  Tokens: 1,203,757 in / 150,942 out (1,354,699 total)
+  Wall-clock LLM time: 9581.3s
+  GPU-hours: 0.00 (CPU-only repo - always 0)
+  By caller:
+    codegen_agent            calls=187  in=452,864  out=86,038  latency=2863.9s  failed=3
+    coding_agent             calls=114  in=126,213  out= 8,717  latency=1873.7s  failed=0
+    error_recovery           calls= 56  in=29,014  out= 7,358  latency= 346.1s  failed=0
+    hypothesis_agent         calls=235  in=595,641  out=48,827  latency=4473.7s  failed=1
+    smoke_test               calls=  1  in=    25  out=     2  latency=  24.0s  failed=0

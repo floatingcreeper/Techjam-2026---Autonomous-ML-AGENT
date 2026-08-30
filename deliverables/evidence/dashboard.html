@@ -1,0 +1,684 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Run Dashboard</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #ffffff; --text: #1c1c1c; --muted: #6b6b6b; --border: #e2e2e0;
+    --accent: #2f6f4f; --accept-bg: #e3f0e8; --reject-bg: #f6e6e3;
+    --accept: #2f6f4f; --reject: #a4453a; --ref: #9a9a9a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16181b; --panel: #1e2125; --text: #e8e8e6; --muted: #9a9a98; --border: #33373c;
+      --accent: #6fbf95; --accept-bg: #223129; --reject-bg: #35211f;
+      --accept: #6fbf95; --reject: #e08a7d; --ref: #7a7a78;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text); margin: 0; padding: 24px;
+    font: 14px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted);
+       margin: 28px 0 8px; }
+  .sub { color: var(--muted); margin-bottom: 20px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+            padding: 16px 20px; margin-bottom: 16px; overflow-x: auto; }
+  .stat-row { display: flex; gap: 28px; flex-wrap: wrap; }
+  .stat { min-width: 140px; }
+  .stat .label { color: var(--muted); font-size: 12px; }
+  .stat .value { font-size: 20px; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--border);
+            vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .statement { max-width: 420px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px;
+            font-weight: 600; white-space: nowrap; }
+  .badge.accepted { background: var(--accept-bg); color: var(--accept); }
+  .badge.rejected { background: var(--reject-bg); color: var(--reject); }
+  tr.rejected td { color: var(--muted); }
+  .err { color: var(--reject); font-size: 12px; margin-top: 2px; }
+  .muted { color: var(--muted); }
+  .chart-bg { fill: var(--panel); }
+  .best-line { stroke: var(--accent); stroke-width: 2; }
+  .point { fill: var(--accent); }
+  .ref-baseline { stroke: var(--ref); stroke-dasharray: 4 3; }
+  .ref-oracle { stroke: var(--ref); stroke-dasharray: 1 3; }
+  .ref-label, .axis-label { fill: var(--muted); font-size: 10px; }
+</style>
+</head>
+<body>
+
+<h1>Autonomous ML Agent &mdash; Run Dashboard</h1>
+<div class="sub">KuaiRand-Pure FM tuning loop &middot; regenerated after every iteration &middot;
+  55 iteration(s) logged &middot; last completed: 49</div>
+
+<div class="panel">
+  <div class="stat-row">
+    <div class="stat"><div class="label">Current-best primary (valid)</div>
+      <div class="value">0.6031</div></div>
+    <div class="stat"><div class="label">vs fm_official baseline</div>
+      <div class="value">+0.0015</div></div>
+    <div class="stat"><div class="label">vs oracle ceiling</div>
+      <div class="value">-0.2453</div></div>
+    <div class="stat"><div class="label">Convergence</div>
+      <div class="value">55 / 3 stale (&epsilon;=0.002)</div></div>
+    <div class="stat"><div class="label">Manual interventions</div>
+      <div class="value">1</div></div>
+  </div>
+</div>
+
+<div class="panel"><p class="muted">No accepted iterations yet — nothing to chart.</p></div>
+
+<h2>Solution tree</h2>
+<div class="panel"><table><thead><tr><th>Node</th><th>Op</th><th>Hypothesis</th><th class="num">Primary</th><th class="num">Iter</th></tr></thead><tbody><tr><td style="padding-left:12px"><span class="badge accepted">working</span> #0 <span class="badge accepted">best</span></td><td>baseline</td><td class="statement">models.fm_bpr reference baseline</td><td class="num">0.6031</td><td class="num">0</td></tr><tr><td style="padding-left:34px"><span class="badge accepted">working</span> #4</td><td>improve</td><td class="statement">Introduce interaction-based features that capture the sequence of videos a user watches and their engagement levels.</td><td class="num">0.6015</td><td class="num">4</td></tr><tr><td style="padding-left:34px"><span class="badge accepted">working</span> #5</td><td>improve</td><td class="statement">Increase the number of duration buckets to 32 and introduce interaction-based features that capture the sequence of videos a user watches and their engagement levels, but weight pairs by how badly they are currently ordered.</td><td class="num">0.6015</td><td class="num">5</td></tr><tr><td style="padding-left:34px"><span class="badge rejected">buggy</span> #6</td><td>improve</td><td class="statement">Introduce a margin objective into the BPR training process to encourage the model to learn a better separation between positive and negative pairs.<div class="err">TypeError: object of type &#x27;int&#x27; has no len()
+Diagnosis (from the repair agent): The error indicates that a fun</div></td><td class="num">&mdash;</td><td class="num">6</td></tr><tr><td style="padding-left:56px"><span class="badge accepted">working</span> #7</td><td>debug</td><td class="statement">Introduce interaction-based features that capture the temporal order of user interactions with videos and their engagement levels.</td><td class="num">0.6007</td><td class="num">7</td></tr><tr><td style="padding-left:34px"><span class="badge rejected">buggy</span> #8</td><td>improve</td><td class="statement">Increase the number of duration buckets to 64 and introduce explicit crosses of dur_bucket with user_active_degree and with tab.<div class="err">NameError: name &#x27;encode&#x27; is not defined
+Diagnosis (from the repair agent): The error indicates that the &#x27;</div></td><td class="num">&mdash;</td><td class="num">8</td></tr><tr><td style="padding-left:56px"><span class="badge accepted">working</span> #9</td><td>debug</td><td class="statement">Introduce a time-based feature that represents the time elapsed since the last interaction for each user.</td><td class="num">0.6015</td><td class="num">9</td></tr><tr><td style="padding-left:34px"><span class="badge accepted">working</span> #10</td><td>config</td><td class="statement">Introduce a new feature that represents the average engagement level of a user over the last 30 days.</td><td class="num">0.6031</td><td class="num">10</td></tr><tr><td style="padding-left:34px"><span class="badge rejected">buggy</span> #11</td><td>config</td><td class="statement">Increase the number of interaction-based features by introducing a new feature that captures the distribution of user engagement levels across different time intervals (e.g., morning, afternoon, evening).<div class="err">Identical resulting config already tried and rejected in iteration 10 — skipped without re-running training (this pipeli</div></td><td class="num">&mdash;</td><td class="num">11</td></tr><tr><td style="padding-left:56px"><span class="badge rejected">buggy</span> #12</td><td>debug</td><td class="statement">Introduce a new feature that captures the average engagement level of a user over the last 7 days.<div class="err">NameError: name &#x27;encode&#x27; is not defined
+Diagnosis (from the repair agent): The error indicates that the &#x27;</div></td><td class="num">&mdash;</td><td class="num">12</td></tr><tr><td style="padding-left:78px"><span class="badge rejected">buggy</span> #13</td><td>debug</td><td class="statement">Introduce a new feature that captures the distribution of user engagement levels across different content categories.<div class="err">NameError: name &#x27;encode&#x27; is not defined
+Diagnosis (from the repair agent): The error indicates that the &#x27;</div></td><td class="num">&mdash;</td><td class="num">13</td></tr><tr><td style="padding-left:100px"><span class="badge rejected">buggy</span> #14</td><td>debug</td><td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on user age and gender demographics.<div class="err">NameError: name &#x27;encode&#x27; is not defined
+Diagnosis (from the repair agent): The error indicates that the &#x27;</div></td><td class="num">&mdash;</td><td class="num">14</td></tr><tr><td style="padding-left:34px"><span class="badge accepted">working</span> #15</td><td>config</td><td class="statement">Increase the regularization strength of the Factorization Machine to prevent overfitting.</td><td class="num">0.5769</td><td class="num">15</td></tr><tr><td style="padding-left:34px"><span class="badge rejected">buggy</span> #16</td><td>config</td><td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on the time of day.<div class="err">Identical resulting config already tried and rejected in iteration 11 — skipped without re-running training (this pipeli</div></td><td class="num">&mdash;</td><td class="num">16</td></tr><tr><td style="padding-left:56px"><span class="badge rejected">buggy</span> #17</td><td>debug</td><td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on user location demographics.<div class="err">NameError: name &#x27;encode&#x27; is not defined
+Diagnosis (from the repair agent): The error indicates that the &#x27;</div></td><td class="num">&mdash;</td><td class="num">17</td></tr><tr><td style="padding-left:78px"><span class="badge rejected">buggy</span> #18</td><td>debug</td><td class="statement">Increase the number of interaction-based features by introducing a new feature that captures the frequency of user interactions with videos based on user age and gender demographics.<div class="err">NameError: name &#x27;B&#x27; is not defined
+Diagnosis (from the repair agent): The variable &#x27;B&#x27; is not define</div></td><td class="num">&mdash;</td><td class="num">18</td></tr><tr><td style="padding-left:100px"><span class="badge rejected">buggy</span> #19</td><td>debug</td><td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on video content category.<div class="err">NameError: name &#x27;encode&#x27; is not defined
+Diagnosis (from the repair agent): The error indicates that the &#x27;</div></td><td class="num">&mdash;</td><td class="num">19</td></tr><tr><td style="padding-left:34px"><span class="badge rejected">buggy</span> #20</td><td>config</td><td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on user activity patterns (e.g., time spent watching, number of breaks between interactions).<div class="err">Identical resulting config already tried and rejected in iteration 16 — skipped without re-running training (this pipeli</div></td><td class="num">&mdash;</td><td class="num">20</td></tr><tr><td style="padding-left:56px"><span class="badge rejected">buggy</span> #21</td><td>debug</td><td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on user device type (e.g., mobile, desktop).<div class="err">NameError: name &#x27;encode&#x27; is not defined
+Diagnosis (from the repair agent): The error indicates that the &#x27;</div></td><td class="num">&mdash;</td><td class="num">21</td></tr><tr><td style="padding-left:78px"><span class="badge rejected">buggy</span> #22</td><td>debug</td><td class="statement">Add a feature that captures the frequency of user interactions with videos based on user device type (e.g., mobile, desktop).<div class="err">NameError: name &#x27;encode&#x27; is not defined
+Diagnosis (from the repair agent): The error indicates that the &#x27;</div></td><td class="num">&mdash;</td><td class="num">22</td></tr><tr><td style="padding-left:100px"><span class="badge rejected">buggy</span> #23</td><td>debug</td><td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on user age and geographic location demographics.<div class="err">NameError: name &#x27;encode&#x27; is not defined
+Diagnosis (from the repair agent): The error indicates that the &#x27;</div></td><td class="num">&mdash;</td><td class="num">23</td></tr><tr><td style="padding-left:34px"><span class="badge rejected">buggy</span> #24</td><td>improve</td><td class="statement">Review and optimize the existing set of features to ensure they are relevant and well-engineered.<div class="err">NameError: name &#x27;encode&#x27; is not defined
+Diagnosis (from the repair agent): The error indicates that the &#x27;</div></td><td class="num">&mdash;</td><td class="num">24</td></tr><tr><td style="padding-left:56px"><span class="badge rejected">buggy</span> #25</td><td>debug</td><td class="statement">Review the existing set of features to identify which ones are most important and consider scaling or adjusting their parameters to enhance their relevance and effectiveness.<div class="err">NameError: name &#x27;encode&#x27; is not defined
+Diagnosis (from the repair agent): The error indicates that the &#x27;</div></td><td class="num">&mdash;</td><td class="num">25</td></tr><tr><td style="padding-left:78px"><span class="badge rejected">buggy</span> #26</td><td>debug</td><td class="statement">Introduce a new feature that captures the average engagement level of users based on their age demographic.<div class="err">NameError: name &#x27;encode&#x27; is not defined
+Diagnosis (from the repair agent): The &#x27;encode&#x27; function is </div></td><td class="num">&mdash;</td><td class="num">26</td></tr><tr><td style="padding-left:100px"><span class="badge accepted">working</span> #27</td><td>debug</td><td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on the video&#x27;s popularity (e.g., view count, likes, shares).</td><td class="num">0.5578</td><td class="num">27</td></tr><tr><td style="padding-left:34px"><span class="badge accepted">working</span> #28</td><td>improve</td><td class="statement">Replace the default encoding method with the `LabelEncoder` from `sklearn.preprocessing` for both user and item features.</td><td class="num">0.5487</td><td class="num">28</td></tr><tr><td style="padding-left:34px"><span class="badge accepted">working</span> #29</td><td>improve</td><td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on the time of day (e.g., morning, afternoon, evening).</td><td class="num">0.5493</td><td class="num">29</td></tr><tr><td style="padding-left:34px"><span class="badge accepted">working</span> #30</td><td>improve</td><td class="statement">Review the existing feature set to identify if any features can be scaled or adjusted to enhance their relevance and effectiveness.</td><td class="num">0.5636</td><td class="num">30</td></tr><tr><td style="padding-left:34px"><span class="badge rejected">buggy</span> #31</td><td>config</td><td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on their user&#x27;s gender.<div class="err">config action changed only [&#x27;extra_fields&#x27;], none of which generated_fm_bpr declares in its defaults ([&#x27;b</div></td><td class="num">&mdash;</td><td class="num">31</td></tr><tr><td style="padding-left:56px"><span class="badge accepted">working</span> #32</td><td>debug</td><td class="statement">Review and simplify the existing set of features to reduce redundancy and focus on essential features that have the most impact.</td><td class="num">0.6015</td><td class="num">32</td></tr><tr><td style="padding-left:34px"><span class="badge accepted">working</span> #33</td><td>improve</td><td class="statement">Review the existing feature set for redundancy and remove any features that do not contribute to the model&#x27;s performance.</td><td class="num">0.5633</td><td class="num">33</td></tr><tr><td style="padding-left:34px"><span class="badge rejected">buggy</span> #34</td><td>config</td><td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on the video&#x27;s category.<div class="err">config action changed only [&#x27;extra_fields&#x27;], none of which generated_fm_bpr declares in its defaults ([&#x27;b</div></td><td class="num">&mdash;</td><td class="num">34</td></tr><tr><td style="padding-left:56px"><span class="badge accepted">working</span> #35</td><td>debug</td><td class="statement">Introduce a new feature that captures the user&#x27;s interaction frequency with videos based on the device they are using (e.g., mobile, desktop, tablet).</td><td class="num">0.5633</td><td class="num">35</td></tr><tr><td style="padding-left:34px"><span class="badge rejected">buggy</span> #36</td><td>config</td><td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on the user&#x27;s age group.<div class="err">Identical resulting config already tried and rejected in iteration 31 — skipped without re-running training (this pipeli</div></td><td class="num">&mdash;</td><td class="num">36</td></tr><tr><td style="padding-left:56px"><span class="badge accepted">working</span> #37</td><td>debug</td><td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on the user&#x27;s device type (e.g., mobile, desktop, tablet).</td><td class="num">0.5775</td><td class="num">37</td></tr><tr><td style="padding-left:34px"><span class="badge rejected">buggy</span> #38</td><td>config</td><td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on the user&#x27;s country of residence.<div class="err">Identical resulting config already tried and rejected in iteration 36 — skipped without re-running training (this pipeli</div></td><td class="num">&mdash;</td><td class="num">38</td></tr><tr><td style="padding-left:56px"><span class="badge accepted">working</span> #39</td><td>debug</td><td class="statement">Introduce a new feature that captures the user&#x27;s interaction frequency with videos based on the time of day they interact with them.</td><td class="num">0.5630</td><td class="num">39</td></tr><tr><td style="padding-left:34px"><span class="badge accepted">working</span> #40</td><td>improve</td><td class="statement">Review and filter out redundant features and configurations that have already been tried to avoid repeated failures and to increase the likelihood of finding new, impactful changes.</td><td class="num">0.5740</td><td class="num">40</td></tr><tr><td style="padding-left:34px"><span class="badge rejected">buggy</span> #41</td><td>config</td><td class="statement">Review and simplify the existing feature set to reduce complexity and potentially improve model performance.<div class="err">config action changed only [&#x27;extra_fields&#x27;], none of which generated_fm_bpr declares in its defaults ([&#x27;b</div></td><td class="num">&mdash;</td><td class="num">41</td></tr><tr><td style="padding-left:56px"><span class="badge accepted">working</span> #42</td><td>debug</td><td class="statement">Simplify the feature set by removing redundant or low-impact features.</td><td class="num">0.6015</td><td class="num">42</td></tr><tr><td style="padding-left:34px"><span class="badge rejected">buggy</span> #43</td><td>config</td><td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on the user&#x27;s gender.<div class="err">Identical resulting config already tried and rejected in iteration 34 — skipped without re-running training (this pipeli</div></td><td class="num">&mdash;</td><td class="num">43</td></tr><tr><td style="padding-left:56px"><span class="badge accepted">working</span> #44</td><td>debug</td><td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on the type of video content they interact with (e.g., educational, entertainment, news).</td><td class="num">0.5633</td><td class="num">44</td></tr><tr><td style="padding-left:34px"><span class="badge rejected">buggy</span> #45</td><td>config</td><td class="statement">Remove the average engagement level of a user over the last 30 days feature.<div class="err">Identical resulting config already tried and rejected in iteration 41 — skipped without re-running training (this pipeli</div></td><td class="num">&mdash;</td><td class="num">45</td></tr><tr><td style="padding-left:56px"><span class="badge accepted">working</span> #46</td><td>debug</td><td class="statement">Remove the average engagement level of a user over the last 30 days feature.</td><td class="num">0.6015</td><td class="num">46</td></tr><tr><td style="padding-left:34px"><span class="badge rejected">buggy</span> #47</td><td>config</td><td class="statement">Introduce a new feature that captures the interaction frequency of users with videos based on the platform&#x27;s day of the week.<div class="err">Identical resulting config already tried and rejected in iteration 43 — skipped without re-running training (this pipeli</div></td><td class="num">&mdash;</td><td class="num">47</td></tr><tr><td style="padding-left:56px"><span class="badge rejected">buggy</span> #48</td><td>debug</td><td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on the user&#x27;s age group.<div class="err">import failed: ImportError: cannot import name &#x27;B&#x27; from &#x27;models.base&#x27; (C:\Users\jonat\OneDrive\Deskt</div></td><td class="num">&mdash;</td><td class="num">48</td></tr><tr><td style="padding-left:78px"><span class="badge accepted">working</span> #49</td><td>debug</td><td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on the user&#x27;s location.</td><td class="num">0.5434</td><td class="num">49</td></tr><tr><td style="padding-left:12px"><span class="badge rejected">buggy</span> #1</td><td>draft</td><td class="statement">Increase the number of negative samples per positive sample during BPR training to 8.<div class="err">ValueError: operands could not be broadcast together with shapes (8192,) (81920,) 
+Diagnosis (from the repair agent): Th</div></td><td class="num">&mdash;</td><td class="num">1</td></tr><tr><td style="padding-left:34px"><span class="badge rejected">buggy</span> #2</td><td>debug</td><td class="statement">Increase the number of negative samples per positive sample during BPR training to 16.<div class="err">import failed: ImportError: cannot import name &#x27;encode&#x27; from &#x27;models.base&#x27; (C:\Users\jonat\OneDrive\</div></td><td class="num">&mdash;</td><td class="num">2</td></tr><tr><td style="padding-left:56px"><span class="badge accepted">working</span> #3</td><td>debug</td><td class="statement">Increase the number of duration buckets to 32 and introduce interaction-based features.</td><td class="num">0.5632</td><td class="num">3</td></tr></tbody></table></div>
+
+<h2>Iterations</h2>
+<div class="panel">
+  <table>
+    <thead><tr><th>#</th><th>Status</th><th>Stage</th><th>Hypothesis</th>
+      <th class="num">Primary</th><th class="num">Tokens</th><th class="num">Wall-clock</th></tr></thead>
+    <tbody>
+        <tr class="rejected">
+          <td>1</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>training</td>
+          <td class="statement">Increase the number of negative samples per positive sample during BPR training to 8.
+            <div class="err">Ensure that the arrays being operated on have compatible shapes. This may involve reshaping or slicing one of the arrays to match the other.</div></td>
+          <td class="num">—</td>
+          <td class="num">7,495 in / 1,076 out</td>
+          <td class="num">37s</td>
+        </tr>
+        <tr class="rejected">
+          <td>2</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>training</td>
+          <td class="statement">Increase the number of negative samples per positive sample during BPR training to 16.
+            <div class="err">debug-sample run failed: import failed: ImportError: cannot import name &#x27;encode&#x27; from &#x27;models.base&#x27; (C:\Users\jonat\OneDrive\Desktop\desktopcoding\desktopcodings\Techjam-2026---Autonomous-ML-AGENT\models\base.py)</div></td>
+          <td class="num">—</td>
+          <td class="num">5,745 in / 656 out</td>
+          <td class="num">18s</td>
+        </tr>
+        <tr class="rejected">
+          <td>3</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Increase the number of duration buckets to 32 and introduce interaction-based features.
+            </td>
+          <td class="num">0.5632</td>
+          <td class="num">7,632 in / 649 out</td>
+          <td class="num">57s</td>
+        </tr>
+        <tr class="rejected">
+          <td>4</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce interaction-based features that capture the sequence of videos a user watches and their engagement levels.
+            </td>
+          <td class="num">0.6015</td>
+          <td class="num">8,321 in / 743 out</td>
+          <td class="num">88s</td>
+        </tr>
+        <tr class="rejected">
+          <td>5</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>training</td>
+          <td class="statement">Increase the number of duration buckets to 32 and introduce interaction-based features that capture the sequence of videos a user watches and their engagement levels, but weight pairs by how badly they are currently ordered.
+            </td>
+          <td class="num">0.6015</td>
+          <td class="num">8,466 in / 790 out</td>
+          <td class="num">87s</td>
+        </tr>
+        <tr class="rejected">
+          <td>6</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>training</td>
+          <td class="statement">Introduce a margin objective into the BPR training process to encourage the model to learn a better separation between positive and negative pairs.
+            <div class="err">Ensure that the variable being passed to the function is initialized as an iterable (e.g., a list or array) before it is used.</div></td>
+          <td class="num">—</td>
+          <td class="num">9,070 in / 1,118 out</td>
+          <td class="num">33s</td>
+        </tr>
+        <tr class="rejected">
+          <td>7</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce interaction-based features that capture the temporal order of user interactions with videos and their engagement levels.
+            </td>
+          <td class="num">0.6007</td>
+          <td class="num">6,065 in / 663 out</td>
+          <td class="num">212s</td>
+        </tr>
+        <tr class="rejected">
+          <td>8</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Increase the number of duration buckets to 64 and introduce explicit crosses of dur_bucket with user_active_degree and with tab.
+            <div class="err">Import the &#x27;encode&#x27; function from the appropriate module, typically &#x27;sklearn.preprocessing&#x27;.</div></td>
+          <td class="num">—</td>
+          <td class="num">7,080 in / 912 out</td>
+          <td class="num">28s</td>
+        </tr>
+        <tr class="rejected">
+          <td>9</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a time-based feature that represents the time elapsed since the last interaction for each user.
+            </td>
+          <td class="num">0.6015</td>
+          <td class="num">5,897 in / 673 out</td>
+          <td class="num">84s</td>
+        </tr>
+        <tr class="rejected">
+          <td>10</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a new feature that represents the average engagement level of a user over the last 30 days.
+            </td>
+          <td class="num">0.6031</td>
+          <td class="num">3,173 in / 314 out</td>
+          <td class="num">60s</td>
+        </tr>
+        <tr class="rejected">
+          <td>11</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Increase the number of interaction-based features by introducing a new feature that captures the distribution of user engagement levels across different time intervals (e.g., morning, afternoon, evening).
+            <div class="err">Identical resulting config already tried and rejected in iteration 10 — skipped without re-running training (this pipeline is deterministic given a fixed seed, so re-running would reproduce the exact same result, not new information).</div></td>
+          <td class="num">—</td>
+          <td class="num">3,196 in / 338 out</td>
+          <td class="num">12s</td>
+        </tr>
+        <tr class="rejected">
+          <td>12</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a new feature that captures the average engagement level of a user over the last 7 days.
+            <div class="err">Import the &#x27;encode&#x27; function from the appropriate module, typically &#x27;base64&#x27; for encoding purposes.</div></td>
+          <td class="num">—</td>
+          <td class="num">4,613 in / 744 out</td>
+          <td class="num">20s</td>
+        </tr>
+        <tr class="rejected">
+          <td>13</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a new feature that captures the distribution of user engagement levels across different content categories.
+            <div class="err">Import the &#x27;encode&#x27; function from the appropriate module, typically &#x27;base64&#x27; for encoding purposes.</div></td>
+          <td class="num">—</td>
+          <td class="num">6,406 in / 782 out</td>
+          <td class="num">23s</td>
+        </tr>
+        <tr class="rejected">
+          <td>14</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on user age and gender demographics.
+            <div class="err">The &#x27;encode&#x27; function is likely a typo and should be &#x27;encode_user_age_gender&#x27;. Assuming this is a custom function, ensure it is defined before it is called.</div></td>
+          <td class="num">—</td>
+          <td class="num">6,418 in / 786 out</td>
+          <td class="num">23s</td>
+        </tr>
+        <tr class="rejected">
+          <td>15</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>model</td>
+          <td class="statement">Increase the regularization strength of the Factorization Machine to prevent overfitting.
+            </td>
+          <td class="num">0.5769</td>
+          <td class="num">3,161 in / 359 out</td>
+          <td class="num">52s</td>
+        </tr>
+        <tr class="rejected">
+          <td>16</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on the time of day.
+            <div class="err">Identical resulting config already tried and rejected in iteration 11 — skipped without re-running training (this pipeline is deterministic given a fixed seed, so re-running would reproduce the exact same result, not new information).</div></td>
+          <td class="num">—</td>
+          <td class="num">3,170 in / 450 out</td>
+          <td class="num">15s</td>
+        </tr>
+        <tr class="rejected">
+          <td>17</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on user location demographics.
+            <div class="err">Import the &#x27;encode&#x27; function from the appropriate module.</div></td>
+          <td class="num">—</td>
+          <td class="num">4,612 in / 716 out</td>
+          <td class="num">20s</td>
+        </tr>
+        <tr class="rejected">
+          <td>18</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Increase the number of interaction-based features by introducing a new feature that captures the frequency of user interactions with videos based on user age and gender demographics.
+            <div class="err">Define the variable &#x27;B&#x27; before using it.</div></td>
+          <td class="num">—</td>
+          <td class="num">4,617 in / 856 out</td>
+          <td class="num">22s</td>
+        </tr>
+        <tr class="rejected">
+          <td>19</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on video content category.
+            <div class="err">Import the &#x27;encode&#x27; function from the appropriate module.</div></td>
+          <td class="num">—</td>
+          <td class="num">4,612 in / 724 out</td>
+          <td class="num">20s</td>
+        </tr>
+        <tr class="rejected">
+          <td>20</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on user activity patterns (e.g., time spent watching, number of breaks between interactions).
+            <div class="err">Identical resulting config already tried and rejected in iteration 16 — skipped without re-running training (this pipeline is deterministic given a fixed seed, so re-running would reproduce the exact same result, not new information).</div></td>
+          <td class="num">—</td>
+          <td class="num">3,184 in / 323 out</td>
+          <td class="num">11s</td>
+        </tr>
+        <tr class="rejected">
+          <td>21</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on user device type (e.g., mobile, desktop).
+            <div class="err">The &#x27;encode&#x27; function is likely intended to be a custom function or a built-in function from a library that was not imported. Ensure that the &#x27;encode&#x27; function is either defined in the code or imported from the appropriate library.</div></td>
+          <td class="num">—</td>
+          <td class="num">4,619 in / 817 out</td>
+          <td class="num">22s</td>
+        </tr>
+        <tr class="rejected">
+          <td>22</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Add a feature that captures the frequency of user interactions with videos based on user device type (e.g., mobile, desktop).
+            <div class="err">The &#x27;encode&#x27; function is likely intended to be a method of a class or a function from a module that was not imported. We need to import the correct module or define the &#x27;encode&#x27; function if it&#x27;s custom.</div></td>
+          <td class="num">—</td>
+          <td class="num">4,618 in / 825 out</td>
+          <td class="num">22s</td>
+        </tr>
+        <tr class="rejected">
+          <td>23</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on user age and geographic location demographics.
+            <div class="err">The &#x27;encode&#x27; function is likely intended to be a custom function or a function from a library that is not imported. Ensure that the function is defined or the necessary library is imported.</div></td>
+          <td class="num">—</td>
+          <td class="num">4,615 in / 801 out</td>
+          <td class="num">21s</td>
+        </tr>
+        <tr class="rejected">
+          <td>24</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Review and optimize the existing set of features to ensure they are relevant and well-engineered.
+            <div class="err">Import the &#x27;encode&#x27; function from the appropriate module, typically &#x27;base64&#x27; for encoding purposes.</div></td>
+          <td class="num">—</td>
+          <td class="num">5,727 in / 835 out</td>
+          <td class="num">25s</td>
+        </tr>
+        <tr class="rejected">
+          <td>25</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Review the existing set of features to identify which ones are most important and consider scaling or adjusting their parameters to enhance their relevance and effectiveness.
+            <div class="err">The &#x27;encode&#x27; function is likely intended to be a method from the &#x27;sklearn.preprocessing&#x27; module. To fix this, you need to import the &#x27;LabelEncoder&#x27; class from &#x27;sklearn.preprocessing&#x27; and use it appropriately.</div></td>
+          <td class="num">—</td>
+          <td class="num">4,617 in / 806 out</td>
+          <td class="num">21s</td>
+        </tr>
+        <tr class="rejected">
+          <td>26</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a new feature that captures the average engagement level of users based on their age demographic.
+            <div class="err">The &#x27;encode&#x27; function is likely intended to be a method of a class or a function from a library like pandas or sklearn. Ensure that the correct library is imported or that the function is defined in the code.</div></td>
+          <td class="num">—</td>
+          <td class="num">4,611 in / 793 out</td>
+          <td class="num">21s</td>
+        </tr>
+        <tr class="rejected">
+          <td>27</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on the video&#x27;s popularity (e.g., view count, likes, shares).
+            </td>
+          <td class="num">0.5578</td>
+          <td class="num">6,150 in / 1,088 out</td>
+          <td class="num">91s</td>
+        </tr>
+        <tr class="rejected">
+          <td>28</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Replace the default encoding method with the `LabelEncoder` from `sklearn.preprocessing` for both user and item features.
+            </td>
+          <td class="num">0.5487</td>
+          <td class="num">7,271 in / 1,216 out</td>
+          <td class="num">146s</td>
+        </tr>
+        <tr class="rejected">
+          <td>29</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on the time of day (e.g., morning, afternoon, evening).
+            </td>
+          <td class="num">0.5493</td>
+          <td class="num">7,277 in / 1,213 out</td>
+          <td class="num">146s</td>
+        </tr>
+        <tr class="rejected">
+          <td>30</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Review the existing feature set to identify if any features can be scaled or adjusted to enhance their relevance and effectiveness.
+            </td>
+          <td class="num">0.5636</td>
+          <td class="num">7,275 in / 1,199 out</td>
+          <td class="num">129s</td>
+        </tr>
+        <tr class="rejected">
+          <td>31</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on their user&#x27;s gender.
+            <div class="err">config action changed only [&#x27;extra_fields&#x27;], none of which generated_fm_bpr declares in its defaults ([&#x27;batch_size&#x27;, &#x27;data_dir&#x27;, &#x27;epochs&#x27;, &#x27;k&#x27;, &#x27;l2&#x27;, &#x27;lr&#x27;, &#x27;neg_candidates&#x27;, &#x27;pairs_per_pos&#x27;, &#x27;patience&#x27;, &#x27;seed&#x27;]) — it would be merged and ignored, reproducing the parent&#x27;s score exactly. Skipped without training.</div></td>
+          <td class="num">—</td>
+          <td class="num">3,171 in / 347 out</td>
+          <td class="num">12s</td>
+        </tr>
+        <tr class="rejected">
+          <td>32</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Review and simplify the existing set of features to reduce redundancy and focus on essential features that have the most impact.
+            </td>
+          <td class="num">0.6015</td>
+          <td class="num">6,150 in / 1,047 out</td>
+          <td class="num">99s</td>
+        </tr>
+        <tr class="rejected">
+          <td>29</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Review and adjust the existing feature set to ensure they are both relevant and well-engineered, focusing on feature scaling and interaction engineering.
+            </td>
+          <td class="num">0.5633</td>
+          <td class="num">7,271 in / 1,252 out</td>
+          <td class="num">504s</td>
+        </tr>
+        <tr class="rejected">
+          <td>30</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a new feature that captures the user&#x27;s historical interaction frequency with videos based on time-of-day.
+            <div class="err">config action changed only [&#x27;extra_fields&#x27;], none of which generated_fm_bpr declares in its defaults ([&#x27;batch_size&#x27;, &#x27;data_dir&#x27;, &#x27;epochs&#x27;, &#x27;k&#x27;, &#x27;l2&#x27;, &#x27;lr&#x27;, &#x27;neg_candidates&#x27;, &#x27;pairs_per_pos&#x27;, &#x27;patience&#x27;, &#x27;seed&#x27;]) — it would be merged and ignored, reproducing the parent&#x27;s score exactly. Skipped without training.</div></td>
+          <td class="num">—</td>
+          <td class="num">3,162 in / 282 out</td>
+          <td class="num">17s</td>
+        </tr>
+        <tr class="rejected">
+          <td>33</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Review the existing feature set for redundancy and remove any features that do not contribute to the model&#x27;s performance.
+            </td>
+          <td class="num">0.5633</td>
+          <td class="num">7,277 in / 1,211 out</td>
+          <td class="num">365s</td>
+        </tr>
+        <tr class="rejected">
+          <td>34</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on the video&#x27;s category.
+            <div class="err">config action changed only [&#x27;extra_fields&#x27;], none of which generated_fm_bpr declares in its defaults ([&#x27;batch_size&#x27;, &#x27;data_dir&#x27;, &#x27;epochs&#x27;, &#x27;k&#x27;, &#x27;l2&#x27;, &#x27;lr&#x27;, &#x27;neg_candidates&#x27;, &#x27;pairs_per_pos&#x27;, &#x27;patience&#x27;, &#x27;seed&#x27;]) — it would be merged and ignored, reproducing the parent&#x27;s score exactly. Skipped without training.</div></td>
+          <td class="num">—</td>
+          <td class="num">3,166 in / 331 out</td>
+          <td class="num">12s</td>
+        </tr>
+        <tr class="rejected">
+          <td>31</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a new feature that captures the interaction frequency of users based on the content type of videos they watch (e.g., documentaries, entertainment, educational).
+            </td>
+          <td class="num">0.5633</td>
+          <td class="num">6,150 in / 1,179 out</td>
+          <td class="num">363s</td>
+        </tr>
+        <tr class="rejected">
+          <td>32</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Remove all existing features and start with a minimal set of core features relevant to user and item engagement.
+            </td>
+          <td class="num">0.5807</td>
+          <td class="num">9,321 in / 1,576 out</td>
+          <td class="num">45s</td>
+        </tr>
+        <tr class="rejected">
+          <td>35</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a new feature that captures the user&#x27;s interaction frequency with videos based on the device they are using (e.g., mobile, desktop, tablet).
+            </td>
+          <td class="num">0.5633</td>
+          <td class="num">6,150 in / 1,125 out</td>
+          <td class="num">280s</td>
+        </tr>
+        <tr class="rejected">
+          <td>36</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on the user&#x27;s age group.
+            <div class="err">Identical resulting config already tried and rejected in iteration 31 — skipped without re-running training (this pipeline is deterministic given a fixed seed, so re-running would reproduce the exact same result, not new information).</div></td>
+          <td class="num">—</td>
+          <td class="num">3,158 in / 329 out</td>
+          <td class="num">11s</td>
+        </tr>
+        <tr class="rejected">
+          <td>33</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a new feature that captures the engagement level of users based on their watch history length.
+            </td>
+          <td class="num">0.5633</td>
+          <td class="num">8,547 in / 1,232 out</td>
+          <td class="num">280s</td>
+        </tr>
+        <tr class="rejected">
+          <td>37</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on the user&#x27;s device type (e.g., mobile, desktop, tablet).
+            </td>
+          <td class="num">0.5775</td>
+          <td class="num">6,150 in / 1,098 out</td>
+          <td class="num">198s</td>
+        </tr>
+        <tr class="rejected">
+          <td>38</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on the user&#x27;s country of residence.
+            <div class="err">Identical resulting config already tried and rejected in iteration 36 — skipped without re-running training (this pipeline is deterministic given a fixed seed, so re-running would reproduce the exact same result, not new information).</div></td>
+          <td class="num">—</td>
+          <td class="num">3,169 in / 338 out</td>
+          <td class="num">53s</td>
+        </tr>
+        <tr class="rejected">
+          <td>34</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a new feature that captures the interaction frequency of users based on the duration of their video views.
+            <div class="err">Identical resulting config already tried and rejected in iteration 30 — skipped without re-running training (this pipeline is deterministic given a fixed seed, so re-running would reproduce the exact same result, not new information).</div></td>
+          <td class="num">—</td>
+          <td class="num">3,154 in / 259 out</td>
+          <td class="num">13s</td>
+        </tr>
+        <tr class="rejected">
+          <td>39</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a new feature that captures the user&#x27;s interaction frequency with videos based on the time of day they interact with them.
+            </td>
+          <td class="num">0.5630</td>
+          <td class="num">6,150 in / 1,092 out</td>
+          <td class="num">413s</td>
+        </tr>
+        <tr class="rejected">
+          <td>40</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Review and filter out redundant features and configurations that have already been tried to avoid repeated failures and to increase the likelihood of finding new, impactful changes.
+            </td>
+          <td class="num">0.5740</td>
+          <td class="num">7,296 in / 1,234 out</td>
+          <td class="num">168s</td>
+        </tr>
+        <tr class="rejected">
+          <td>41</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Review and simplify the existing feature set to reduce complexity and potentially improve model performance.
+            <div class="err">config action changed only [&#x27;extra_fields&#x27;], none of which generated_fm_bpr declares in its defaults ([&#x27;batch_size&#x27;, &#x27;data_dir&#x27;, &#x27;epochs&#x27;, &#x27;k&#x27;, &#x27;l2&#x27;, &#x27;lr&#x27;, &#x27;neg_candidates&#x27;, &#x27;pairs_per_pos&#x27;, &#x27;patience&#x27;, &#x27;seed&#x27;]) — it would be merged and ignored, reproducing the parent&#x27;s score exactly. Skipped without training.</div></td>
+          <td class="num">—</td>
+          <td class="num">3,174 in / 306 out</td>
+          <td class="num">11s</td>
+        </tr>
+        <tr class="rejected">
+          <td>42</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Simplify the feature set by removing redundant or low-impact features.
+            </td>
+          <td class="num">0.6015</td>
+          <td class="num">6,150 in / 1,059 out</td>
+          <td class="num">95s</td>
+        </tr>
+        <tr class="rejected">
+          <td>43</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on the user&#x27;s gender.
+            <div class="err">Identical resulting config already tried and rejected in iteration 34 — skipped without re-running training (this pipeline is deterministic given a fixed seed, so re-running would reproduce the exact same result, not new information).</div></td>
+          <td class="num">—</td>
+          <td class="num">3,184 in / 354 out</td>
+          <td class="num">12s</td>
+        </tr>
+        <tr class="rejected">
+          <td>44</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on the type of video content they interact with (e.g., educational, entertainment, news).
+            </td>
+          <td class="num">0.5633</td>
+          <td class="num">6,150 in / 1,135 out</td>
+          <td class="num">368s</td>
+        </tr>
+        <tr class="rejected">
+          <td>45</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Remove the average engagement level of a user over the last 30 days feature.
+            <div class="err">Identical resulting config already tried and rejected in iteration 41 — skipped without re-running training (this pipeline is deterministic given a fixed seed, so re-running would reproduce the exact same result, not new information).</div></td>
+          <td class="num">—</td>
+          <td class="num">3,167 in / 251 out</td>
+          <td class="num">10s</td>
+        </tr>
+        <tr class="rejected">
+          <td>46</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Remove the average engagement level of a user over the last 30 days feature.
+            </td>
+          <td class="num">0.6015</td>
+          <td class="num">6,150 in / 1,063 out</td>
+          <td class="num">93s</td>
+        </tr>
+        <tr class="rejected">
+          <td>47</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a new feature that captures the interaction frequency of users with videos based on the platform&#x27;s day of the week.
+            <div class="err">Identical resulting config already tried and rejected in iteration 43 — skipped without re-running training (this pipeline is deterministic given a fixed seed, so re-running would reproduce the exact same result, not new information).</div></td>
+          <td class="num">—</td>
+          <td class="num">3,204 in / 389 out</td>
+          <td class="num">13s</td>
+        </tr>
+        <tr class="rejected">
+          <td>48</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on the user&#x27;s age group.
+            <div class="err">debug-sample run failed: import failed: ImportError: cannot import name &#x27;B&#x27; from &#x27;models.base&#x27; (C:\Users\jonat\OneDrive\Desktop\desktopcoding\desktopcodings\Techjam-2026---Autonomous-ML-AGENT\models\base.py)</div></td>
+          <td class="num">—</td>
+          <td class="num">6,150 in / 1,081 out</td>
+          <td class="num">26s</td>
+        </tr>
+        <tr class="rejected">
+          <td>49</td>
+          <td><span class="badge rejected">rejected</span></td>
+          <td>features</td>
+          <td class="statement">Introduce a new feature that captures the frequency of user interactions with videos based on the user&#x27;s location.
+            </td>
+          <td class="num">0.5434</td>
+          <td class="num">6,150 in / 1,116 out</td>
+          <td class="num">158s</td>
+        </tr></tbody>
+  </table>
+</div>
+
+<h2>Resource consumption</h2>
+<div class="panel">
+  <div class="stat-row">
+    <div class="stat"><div class="label">LLM calls</div>
+      <div class="value">591 (4 failed)</div></div>
+    <div class="stat"><div class="label">Tokens</div>
+      <div class="value">1,200,586 in / 150,634 out</div></div>
+    <div class="stat"><div class="label">LLM wall-clock</div>
+      <div class="value">9570s</div></div>
+    <div class="stat"><div class="label">GPU-hours</div>
+      <div class="value">0.00 (CPU-only)</div></div>
+  </div>
+  <table style="margin-top:12px">
+    <thead><tr><th>Caller</th><th class="num">Calls</th><th class="num">In</th>
+      <th class="num">Out</th><th class="num">Latency</th><th class="num">Failed</th></tr></thead>
+    <tbody><tr><td>codegen_agent</td><td class='num'>187</td><td class='num'>452,864</td><td class='num'>86,038</td><td class='num'>2863.9s</td><td class='num'>3</td></tr><tr><td>coding_agent</td><td class='num'>113</td><td class='num'>125,092</td><td class='num'>8,642</td><td class='num'>1869.8s</td><td class='num'>0</td></tr><tr><td>error_recovery</td><td class='num'>56</td><td class='num'>29,014</td><td class='num'>7,358</td><td class='num'>346.1s</td><td class='num'>0</td></tr><tr><td>hypothesis_agent</td><td class='num'>234</td><td class='num'>593,591</td><td class='num'>48,594</td><td class='num'>4466.6s</td><td class='num'>1</td></tr><tr><td>smoke_test</td><td class='num'>1</td><td class='num'>25</td><td class='num'>2</td><td class='num'>24.0s</td><td class='num'>0</td></tr></tbody>
+  </table>
+</div>
+
+<h2>Manual interventions</h2>
+<div class="panel">
+  <table>
+    <thead><tr><th>When</th><th>Reason</th></tr></thead>
+    <tbody><tr><td>1787991740.9715216</td><td>manually verified resume works after a simulated crash</td></tr></tbody>
+  </table>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "last_completed_iteration": 49,
+  "current_best": {
+    "gauc": 0.6692768931388855,
+    "ndcg5": 0.5368374586105347,
+    "primary": 0.6030571460723877,
+    "summary": "baseline: models.fm_bpr at its default config",
+    "config": {
+      "k": 16,
+      "lr": 0.001,
+      "l2": 1e-06,
+      "epochs": 40,
+      "patience": 4,
+      "batch_size": 8192,
+      "seed": 0,
+      "pairs_per_pos": 2.0
+    },
+    "code_path": null,
+    "node_id": 0
+  }
+}
