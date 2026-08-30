@@ -23,6 +23,7 @@ Everything a legitimate model variant needs (numpy math, the shared FM primitive
 evaluate.evaluate, the encoders in data.py) is still available via the import allowlist below.
 """
 import ast
+import builtins
 
 # Modules generated code may import. Deliberately minimal: numpy + stdlib math/data-structure
 # helpers + this repo's own already-audited modules. `os`/`sys`/`subprocess`/`shutil`/`socket`/
@@ -43,6 +44,13 @@ FORBIDDEN_CALLS = {
 FORBIDDEN_ATTRIBUTES = {
     '__subclasses__', '__bases__', '__mro__', '__globals__', '__code__', '__closure__',
     '__builtins__', '__loader__', '__spec__', '__dict__', '__getattribute__', '__reduce__',
+}
+
+# Repo API names a generated module may reference. Used ONLY to catch the use-without-import
+# case below — this is not an allowlist, and referencing something outside it is fine.
+REPO_API_NAMES = {
+    'encode', 'encode_with_extra_fields', 'evaluate', 'non_train_splits', 'load',
+    'FIELDS', 'EXTRA_FIELDS', 'np', 'B',
 }
 
 REQUIRED_FUNCTION = 'train'
@@ -214,6 +222,53 @@ def check_source(source):
                             "off-limits; evaluate against whichever non-train splits are present "
                             "(see models/base.py's non_train_splits())")
             break
+
+    # --- use-without-import ---
+    # Found live, three iterations running: a module that calls `encode(splits)` while importing
+    # only numpy/evaluate/non_train_splits. It is safe, it is a correct call, and it dies at
+    # import-or-run time with `NameError: name 'encode' is not defined` — after a full debug_run
+    # has been spent on it, and then again on each DEBUG child, because the repair prompt gets a
+    # bare one-line NameError and keeps regenerating the same omission.
+    #
+    # The safety analysis above cannot see this: it only asks whether the imports PRESENT are
+    # allowed, never whether the names USED are bound. Catching it here turns a wasted iteration
+    # into one cheap codegen retry, the same way the signature checks above do.
+    bound = set(dir(builtins))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                bound.add(alias.asname or alias.name.split('.')[0])
+        elif isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                bound.add(alias.asname or alias.name)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            bound.add(node.name)
+        elif isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+            # Any assignment anywhere counts as binding the name. Deliberately generous: a
+            # guardrail that feeds a retry loop should never invent work, so we accept a few
+            # missed cases rather than risk a false rejection of correct code.
+            bound.add(node.id)
+        elif isinstance(node, ast.arg):
+            bound.add(node.arg)
+
+    missing = sorted({n.id for n in ast.walk(tree)
+                       if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load)
+                       and n.id in REPO_API_NAMES and n.id not in bound})
+    if missing:
+        hint = {
+            'encode': 'from data import encode',
+            'encode_with_extra_fields': 'from data import encode_with_extra_fields',
+            'evaluate': 'from evaluate import evaluate',
+            'non_train_splits': 'from models.base import non_train_splits',
+            'load': 'from data import load',
+            'FIELDS': 'from data import FIELDS',
+            'EXTRA_FIELDS': 'from data import EXTRA_FIELDS',
+            'np': 'import numpy as np',
+            'B': 'import baseline as B',
+        }
+        for name in missing:
+            reasons.append(f"uses {name!r} but never imports it - add `{hint[name]}` at the top "
+                            f"of the module (this is a NameError at run time, not a style issue)")
 
     # --- required entrypoint ---
     top_level_fns = {n.name for n in tree.body if isinstance(n, ast.FunctionDef)}

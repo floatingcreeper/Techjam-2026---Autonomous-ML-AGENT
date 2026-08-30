@@ -37,6 +37,20 @@ they were for fm_v1, so do not spend iterations re-searching them:
     k              16  -> 0.60306 | 32  -> 0.60207
     lr             0.001 -> 0.60306 | 0.002 -> 0.60015 | 0.003 -> 0.59970 | 0.005 -> 0.59839
 
+HARD NEGATIVE MINING WAS TRIED AND IS WORSE - monotonically, which is the useful part:
+    neg_candidates 1 -> 0.60306 | 2 -> 0.60041 | 4 -> 0.58238 | 8 -> 0.57176 | 16 -> 0.56862
+The knob survives (default 1 = disabled, so this costs nothing) because the trend itself is the
+finding. long_view is noisy implicit feedback, so a user's highest-scoring negative is very often
+a mislabeled positive - someone who did watch and was not recorded as a long view. Training on
+the most-violating candidate therefore aims each gradient step at exactly the rows most likely to
+be wrong, and the harder you mine, the more of the fit is noise. Do not re-propose this, and be
+suspicious of any variant that concentrates on high-scoring negatives.
+
+WHAT DID HELP ON TOP OF THIS MODEL: seed ensembling - see ensemble_submission.py. Averaging
+per-user-standardized scores over 5 seeds gives valid 0.6039 (vs 0.6031 best single) and test
+0.5974 (vs 0.5970). Small but real, and it is averaging out initialization/minibatch variance
+rather than adding information, which is why it works where the popularity blend did not.
+
 Contract is models/base.py's: train(splits, config=None, verbose=False) -> {split: evaluate(...)}
 for every non-'train' key. Fits nothing on a non-train split, loads no data itself.
 """
@@ -55,6 +69,17 @@ DEFAULTS = {
     # 1.0 means "one sampled negative per positive per epoch"; raising it trades wall-clock for
     # a denser sample of the pair space.
     'pairs_per_pos': 2.0,
+    # HARD NEGATIVE MINING. For each sampled positive, draw this many candidate negatives from
+    # the same user and train on the single HIGHEST-SCORING one — the negative the model is
+    # currently most wrong about. 1 disables it (uniform sampling, the original behaviour).
+    #
+    # Worth being clear why this is not just "more negatives": averaging the BPR loss over N
+    # uniformly-drawn negatives is statistically almost the same thing as drawing N times as many
+    # independent pairs, and that was measured as WORSE (pairs_per_pos=4 -> 0.6021 vs 2 -> 0.6031).
+    # Picking the most-violating candidate is a different estimator, not a denser one: it
+    # concentrates every gradient step on the ordering errors that actually cost GAUC, instead of
+    # spending most steps on easy pairs the model already ranks correctly.
+    'neg_candidates': 1,
 }
 
 
@@ -94,8 +119,12 @@ def _build_pair_index(users, y):
     return pos_idx, neg_flat, neg_start, neg_counts, codes
 
 
-def _sample_pairs(rng, n_pairs, pos_idx, neg_flat, neg_start, neg_counts, codes):
-    """Draw `n_pairs` (positive_row, negative_row) pairs from the SAME user, vectorized.
+def _sample_pairs(rng, n_pairs, pos_idx, neg_flat, neg_start, neg_counts, codes,
+                   n_candidates=1):
+    """Draw `n_pairs` positives and, for each, `n_candidates` negatives from the SAME user.
+
+    Returns (p, cand) with p shape (n_pairs,) and cand shape (n_pairs, n_candidates). With
+    n_candidates=1 that second axis is just the single uniform negative the original code drew.
 
     Sampling positives uniformly is deliberate rather than incidental: it makes a user's chance
     of being trained on proportional to their positive count, which is exactly how GAUC weights
@@ -103,10 +132,30 @@ def _sample_pairs(rng, n_pairs, pos_idx, neg_flat, neg_start, neg_counts, codes)
     """
     p = pos_idx[rng.integers(0, len(pos_idx), size=n_pairs)]
     c = codes[p]
-    # One uniform draw inside each user's own negative block.
-    offset = (rng.random(n_pairs) * neg_counts[c]).astype(np.int64)
-    n = neg_flat[neg_start[c] + offset]
-    return p, n
+    # One uniform draw per candidate, inside each positive's own user's negative block. The
+    # (n_pairs, n_candidates) broadcast against a (n_pairs, 1) count/offset is what keeps every
+    # candidate inside the right user — getting this shape wrong is what made the loop's own
+    # attempt at this idea die with "operands could not be broadcast together".
+    offset = (rng.random((n_pairs, n_candidates)) * neg_counts[c][:, None]).astype(np.int64)
+    cand = neg_flat[neg_start[c][:, None] + offset]
+    return p, cand
+
+
+def _hardest_negative(m, Xtr, cand):
+    """Of each row's candidate negatives, the one the model currently scores HIGHEST.
+
+    That is the most-violating negative: the one closest to (or already above) the positive, and
+    therefore the one carrying the largest gradient. Scoring costs one forward pass over
+    n_pairs * n_candidates rows, but the backward pass still runs on n_pairs pairs only, so the
+    cost grows far more slowly than the candidate count.
+
+    No gradient is taken here — m.logits() is called purely to rank candidates, and its E/S
+    intermediates are discarded.
+    """
+    n_rows, n_cand = cand.shape
+    z, _, _ = m.logits(Xtr[cand.reshape(-1)])
+    z = z.reshape(n_rows, n_cand)
+    return cand[np.arange(n_rows), np.argmax(z, axis=1)]
 
 
 def _step_pair(m, Xp, Xn):
@@ -169,8 +218,10 @@ def train(splits, config=None, verbose=False):
         raise RuntimeError("fm_bpr.train: no training user has both a positive and a negative — "
                             "a pairwise objective has nothing to learn from")
     n_pairs = max(1, int(len(pos_idx) * cfg['pairs_per_pos']))
+    n_cand = max(1, int(cfg['neg_candidates']))
     if verbose:
-        print(f"  [fm_bpr] {len(pos_idx)} eligible positives, {n_pairs} pairs/epoch, dim={dim}")
+        print(f"  [fm_bpr] {len(pos_idx)} eligible positives, {n_pairs} pairs/epoch, "
+              f"neg_candidates={n_cand}, dim={dim}")
 
     m = B.FM(dim, k=cfg['k'], lr=cfg['lr'], l2=cfg['l2'], seed=cfg['seed'])
     rng = np.random.default_rng(cfg['seed'])
@@ -178,9 +229,15 @@ def train(splits, config=None, verbose=False):
 
     best, best_state, bad = -1.0, None, 0
     for ep in range(1, cfg['epochs'] + 1):
-        p, n = _sample_pairs(rng, n_pairs, pos_idx, neg_flat, neg_start, neg_counts, codes)
+        p, cand = _sample_pairs(rng, n_pairs, pos_idx, neg_flat, neg_start, neg_counts, codes,
+                                 n_candidates=n_cand)
         for i in range(0, n_pairs, bs):
-            _step_pair(m, Xtr[p[i:i + bs]], Xtr[n[i:i + bs]])
+            pb, cb = p[i:i + bs], cand[i:i + bs]
+            # Selected per BATCH, not once per epoch: "hardest" is a property of the CURRENT
+            # parameters, and they move with every step. Choosing at epoch start would rank the
+            # candidates against a model that no longer exists by the time the batch is used.
+            nb = cb[:, 0] if n_cand == 1 else _hardest_negative(m, Xtr, cb)
+            _step_pair(m, Xtr[pb], Xtr[nb])
 
         Xv, yv, uv = eval_enc[primary_split]
         cur = evaluate(uv, yv, m.predict(Xv))

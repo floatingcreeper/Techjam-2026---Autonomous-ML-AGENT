@@ -34,7 +34,7 @@ from submit import write_submission
 
 def train_bpr_keep_model(splits, cfg, verbose=True):
     """models/fm_bpr.train's loop, but returns (model, enc) instead of metrics."""
-    from models.fm_bpr import _build_pair_index, _sample_pairs, _step_pair
+    from models.fm_bpr import (_build_pair_index, _hardest_negative, _sample_pairs, _step_pair)
 
     enc, dim = encode(splits)
     Xtr, ytr, utr = enc['train']
@@ -42,8 +42,10 @@ def train_bpr_keep_model(splits, cfg, verbose=True):
 
     pos_idx, neg_flat, neg_start, neg_counts, codes = _build_pair_index(utr, ytr)
     n_pairs = max(1, int(len(pos_idx) * cfg['pairs_per_pos']))
+    n_cand = max(1, int(cfg.get('neg_candidates', 1)))
     if verbose:
-        print(f"  [fm_bpr] {len(pos_idx):,d} eligible positives, {n_pairs:,d} pairs/epoch, dim={dim}")
+        print(f"  [fm_bpr] {len(pos_idx):,d} eligible positives, {n_pairs:,d} pairs/epoch, "
+              f"neg_candidates={n_cand}, dim={dim}")
 
     m = B.FM(dim, k=cfg['k'], lr=cfg['lr'], l2=cfg['l2'], seed=cfg['seed'])
     rng = np.random.default_rng(cfg['seed'])
@@ -51,9 +53,12 @@ def train_bpr_keep_model(splits, cfg, verbose=True):
 
     best, best_state, bad = -1.0, None, 0
     for ep in range(1, cfg['epochs'] + 1):
-        p, n = _sample_pairs(rng, n_pairs, pos_idx, neg_flat, neg_start, neg_counts, codes)
+        p, cand = _sample_pairs(rng, n_pairs, pos_idx, neg_flat, neg_start, neg_counts, codes,
+                                 n_candidates=n_cand)
         for i in range(0, n_pairs, bs):
-            _step_pair(m, Xtr[p[i:i + bs]], Xtr[n[i:i + bs]])
+            pb, cb = p[i:i + bs], cand[i:i + bs]
+            nb = cb[:, 0] if n_cand == 1 else _hardest_negative(m, Xtr, cb)
+            _step_pair(m, Xtr[pb], Xtr[nb])
         cur = evaluate(uva, yva, m.predict(Xva))   # VALID only — never the submission split
         if verbose:
             print(f"  epoch {ep:2d} | valid primary {cur['primary']:.4f}")
