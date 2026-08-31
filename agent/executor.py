@@ -27,8 +27,27 @@ class Failure:
         return f"Failure({self.kind}: {self.detail[:80]!r})"
 
 
+# docs/SYSTEM.md §8 -- holdout access guard.
+# The data interface already withholds hidden-test labels and the near-oracle `is_click` proxy
+# (agent/datced.py v7 keeps them under runs/_holdout/). This is the second layer: an agent-written
+# block must not reach around the interface to the holdout directory or the raw logs. Matching is on
+# string literals, which is what a generated block would realistically use.
+FORBIDDEN_LITERALS = (
+    "_holdout",            # the holdout directory itself
+    "test_y", "test_aux",  # hidden-test labels and their aux proxy
+    "valid_aux",           # is_click for the split every decision is made on
+    "KuaiRand-Pure",       # the raw logs, which contain every label
+    "log_standard", "log_random",
+)
+# Builtins that would let a block read a file outside the numpy/cache interface.
+FORBIDDEN_CALLS = ("open", "eval", "exec", "compile", "__import__", "globals", "getattr_static")
+
+
 def check_imports(source: str):
-    """Fail-fast static gate on an agent-written block (syntax + import allowlist)."""
+    """Fail-fast static gate on an agent-written block: syntax, import allowlist, holdout access.
+
+    Returns (ok, reason). Runs BEFORE the block is executed, so a rejected edit costs no training.
+    """
     try:
         tree = ast.parse(source)
     except SyntaxError as e:
@@ -45,6 +64,18 @@ def check_imports(source: str):
                 bad.append(n.module)
     if bad:
         return False, f"disallowed imports: {bad}"
+
+    hits = []
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Constant) and isinstance(n.value, str):
+            for lit in FORBIDDEN_LITERALS:
+                if lit in n.value:
+                    hits.append(f"string literal {n.value[:60]!r} references holdout data ({lit})")
+        elif isinstance(n, ast.Call) and isinstance(n.func, ast.Name):
+            if n.func.id in FORBIDDEN_CALLS:
+                hits.append(f"call to {n.func.id}() is not permitted in a pipeline block")
+    if hits:
+        return False, ("holdout/access guard: " + "; ".join(sorted(set(hits))[:3]))
     return True, ""
 
 
