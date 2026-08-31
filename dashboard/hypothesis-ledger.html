@@ -1,40 +1,32 @@
-<title>Hypothesis Ledger</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<title>Experiment Log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap">
 <style>
+  /* fixed dark navy palette — shared with dashboard/research-console.html so the two
+     dashboards read as one product. Same token values as that file's :root. */
   :root {
-    --bg:#eef1ef; --surface:#fff; --surface-2:#e3e8e4; --ink:#14201d; --ink-muted:#55635e;
-    --ink-faint:#8b968f; --border:#d3d9d5; --accent:#0c7a86; --accent-soft:#d3e9eb;
-    --ok:#2e7d5b; --nogain:#8b968f; --fail:#b33a3a; --warn:#c08a2e;
-    /* lever palette */
-    --lv-A:#0c7a86; --lv-B:#b5651d; --lv-C:#2e7d5b; --lv-D:#7a4fb5; --lv-F:#c0392b;
-    --lv-resume:#c08a2e; --lv-none:#8b968f;
-    --font-body:'IBM Plex Sans',system-ui,sans-serif; --font-mono:'IBM Plex Mono',ui-monospace,monospace;
-  }
-  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-    --bg:#0d1417; --surface:#131c1e; --surface-2:#1c272b; --ink:#e4ecec; --ink-muted:#93a2a3;
-    --ink-faint:#61706f; --border:#26312f; --accent:#3bb4c0; --accent-soft:#123037;
-    --ok:#4caf7d; --nogain:#61706f; --fail:#e0605f; --warn:#e0b04c;
-    --lv-A:#3bb4c0; --lv-B:#e0812f; --lv-C:#4bb488; --lv-D:#a986e0; --lv-F:#e0605f;
-    --lv-resume:#e0b04c; --lv-none:#61706f;
-  } }
-  :root[data-theme="dark"] {
-    --bg:#0d1417; --surface:#131c1e; --surface-2:#1c272b; --ink:#e4ecec; --ink-muted:#93a2a3;
-    --ink-faint:#61706f; --border:#26312f; --accent:#3bb4c0; --accent-soft:#123037;
-    --ok:#4caf7d; --nogain:#61706f; --fail:#e0605f; --warn:#e0b04c;
-    --lv-A:#3bb4c0; --lv-B:#e0812f; --lv-C:#4bb488; --lv-D:#a986e0; --lv-F:#e0605f;
-    --lv-resume:#e0b04c; --lv-none:#61706f;
+    --bg:#0b0f17; --surface:#111726; --surface-2:#0e1420; --ink:#dfe7f5; --ink-muted:#8b9bb8;
+    --ink-faint:#61708d; --border:#1e2942; --border-strong:#26314d; --control-bg:#16203a;
+    --accent:#4da3ff; --accent-soft:rgba(77,163,255,.12);
+    --ok:#35d39a; --nogain:#61708d; --fail:#ff6b6b; --warn:#ffc14d;
+    /* lever palette — reuses the same six categorical colors research-console.html uses
+       for its event-type tags, so a lever means the same hue on both dashboards */
+    --lv-A:#4da3ff; --lv-B:#ffc14d; --lv-C:#35d39a; --lv-D:#b58cff; --lv-F:#ff6b6b;
+    --lv-resume:#3fd8d0; --lv-none:#61708d;
+    --font-body:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+    --font-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
   }
   * { box-sizing:border-box; }
   body { background:var(--bg); color:var(--ink); font-family:var(--font-body); line-height:1.5; min-height:100vh; margin:0; }
   .wrap { max-width:1180px; margin:0 auto; padding:2.5rem 1.5rem 5rem; }
   header.page-head { display:flex; justify-content:space-between; align-items:flex-end; gap:1.5rem;
-    flex-wrap:wrap; border-bottom:2px solid var(--ink); padding-bottom:1.1rem; margin-bottom:2rem; }
+    flex-wrap:wrap; border-bottom:1px solid var(--border-strong); padding-bottom:1.1rem; margin-bottom:2rem; }
   h1 { font-weight:700; font-size:clamp(1.7rem,3vw,2.35rem); letter-spacing:-0.01em; margin:0 0 0.3rem; }
   .eyebrow { font-family:var(--font-mono); font-size:0.72rem; letter-spacing:0.11em; text-transform:uppercase; color:var(--accent); font-weight:600; }
   .subtitle { color:var(--ink-muted); font-size:0.94rem; max-width:52ch; margin-top:0.35rem; }
   .source-line { font-family:var(--font-mono); font-size:0.78rem; color:var(--ink-faint); }
-  .file-label { font-family:var(--font-body); font-weight:600; font-size:0.85rem; border:1.5px solid var(--ink);
-    background:var(--ink); color:var(--bg); padding:0.55rem 1.1rem; border-radius:3px; cursor:pointer; display:inline-flex; }
+  .file-label { font-family:var(--font-body); font-weight:600; font-size:0.85rem; border:1px solid var(--accent);
+    background:var(--accent); color:#06101f; padding:0.55rem 1.1rem; border-radius:3px; cursor:pointer; display:inline-flex; }
   .file-label:hover { opacity:0.85; }
   input[type="file"] { display:none; }
   #dropzone { border:2px dashed var(--border); border-radius:10px; padding:4rem 2rem; text-align:center; color:var(--ink-muted); transition:border-color .15s,background .15s; }
@@ -65,6 +57,7 @@
   .legend span { display:inline-flex; align-items:center; gap:0.35rem; }
   .legend i { width:9px; height:9px; border-radius:50%; display:inline-block; }
   h2.section-head { font-size:1.05rem; font-weight:600; margin:0 0 0.15rem; }
+  .section-head-row { display:flex; align-items:center; gap:0.1rem; position:relative; }
   .section-note { font-size:0.8rem; color:var(--ink-muted); margin-bottom:1rem; }
   .table-scroll { overflow-x:auto; margin-bottom:2rem; }
   table.metrics-full { width:100%; min-width:640px; border-collapse:collapse; font-family:var(--font-mono);
@@ -103,71 +96,133 @@
     overflow-x:auto; white-space:pre; max-height:220px; margin-top:0.5rem; }
   footer.note { margin-top:2.5rem; font-size:0.78rem; color:var(--ink-faint); border-top:1px solid var(--border); padding-top:1rem; }
   @media (prefers-reduced-motion:reduce){ *{transition:none!important;} }
+
+  /* ---------- i18n / tour / info additions ---------- */
+  .header-controls { display:flex; align-items:center; gap:0.5rem; }
+  .lang-btn { font-family:var(--font-mono); font-size:0.78rem; font-weight:600; border:1px solid var(--border-strong);
+    background:var(--control-bg); color:var(--ink); padding:0.42rem 0.8rem; border-radius:5px; cursor:pointer; }
+  .lang-btn:hover { border-color:var(--accent); }
+  .icon-btn { font-family:var(--font-mono); width:1.95rem; height:1.95rem; border-radius:50%; border:1px solid var(--border-strong);
+    background:var(--control-bg); color:var(--ink); cursor:pointer; font-weight:700; font-size:0.85rem; line-height:1; }
+  .icon-btn:hover { border-color:var(--accent); }
+  .info-btn { font-family:var(--font-mono); font-size:0.68rem; width:1.25rem; height:1.25rem; border-radius:50%;
+    border:1px solid var(--ink-faint); background:none; color:var(--ink-faint); cursor:pointer; margin-left:0.35rem;
+    flex:0 0 auto; line-height:1; }
+  .info-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .info-pop { display:none; position:absolute; top:100%; left:0; z-index:50; width:min(320px,80vw);
+    background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:0.75rem 0.9rem;
+    font-size:0.8rem; line-height:1.5; color:var(--ink-muted); box-shadow:0 10px 28px rgba(0,0,0,.18); margin-top:0.5rem; }
+  .info-pop.open { display:block; }
+  .tour-target { position:relative; z-index:60; outline:3px solid var(--accent); outline-offset:5px; border-radius:10px; }
+  #tourScrim { position:fixed; inset:0; background:rgba(3,6,12,.6); z-index:55; cursor:pointer; }
+  .tour-card { position:fixed; z-index:70; width:min(320px,86vw); background:var(--surface); border:1px solid var(--border);
+    border-radius:10px; padding:1.05rem 1.15rem; box-shadow:0 14px 34px rgba(0,0,0,.45); }
+  .tour-card .tour-title { font-weight:700; font-size:0.98rem; margin-bottom:0.4rem; color:var(--accent); padding-right:1.4rem; }
+  .tour-card .tour-body { color:var(--ink-muted); font-size:0.86rem; line-height:1.55; margin-bottom:0.9rem; }
+  .tour-card .tour-foot { display:flex; align-items:center; justify-content:space-between; gap:0.6rem; }
+  .tour-card .tour-step { font-family:var(--font-mono); font-size:0.7rem; color:var(--ink-faint); }
+  .tour-card .tour-btns { display:flex; gap:0.4rem; align-items:center; }
+  .tour-close { position:absolute; top:0.6rem; right:0.7rem; background:none; border:none; color:var(--ink-faint);
+    font-size:1.1rem; line-height:1; cursor:pointer; padding:0.2rem 0.35rem; border-radius:4px; }
+  .tour-close:hover { color:var(--ink); background:var(--surface-2); }
+  button.tour-btn { font-family:var(--font-body); font-size:0.78rem; font-weight:600; border:1px solid var(--border-strong);
+    background:var(--control-bg); color:var(--ink); padding:0.4rem 0.75rem; border-radius:5px; cursor:pointer; }
+  button.tour-next { background:var(--accent); color:#06101f; border-color:var(--accent); }
+  button.tour-skip { background:none; border:none; color:var(--ink-faint); text-decoration:underline; cursor:pointer; padding:0.4rem 0; font-size:0.76rem; }
+  @media (prefers-reduced-motion:reduce){ .tour-target{ transition:none!important; } }
 </style>
 
 <div class="wrap">
   <header class="page-head">
     <div>
-      <div class="eyebrow">kuairand agent &middot; best-first tree search</div>
-      <h1>Hypothesis Ledger</h1>
-      <div class="subtitle">Every node the agent tried, colored by lever, with the best-so-far envelope over the search tree &mdash; read entirely in your browser, offline.</div>
+      <div class="eyebrow" data-i18n="eyebrow">kuairand agent &middot; best-first tree search</div>
+      <h1 data-i18n="title">Experiment Log</h1>
+      <div class="subtitle" data-i18n="subtitle">Every node the agent tried, colored by lever, with the best-so-far envelope over the search tree &mdash; read entirely in your browser, offline.</div>
     </div>
-    <div class="source-line" id="sourceLine"></div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.6rem;">
+      <div class="header-controls">
+        <button class="icon-btn" id="tourReplay" title="Show guide / 显示引导" aria-label="Show guide">?</button>
+        <button class="lang-btn" id="langToggle" aria-label="Switch language">EN / 中</button>
+      </div>
+      <div class="source-line" id="sourceLine"></div>
+    </div>
   </header>
 
   <div id="dropzone">
-    <p><strong>Drop <code>run_log.jsonl</code> here</strong>, or choose the file below.</p>
-    <label class="file-label" for="fileInput">Load run_log.jsonl</label>
+    <p><strong data-i18n-html="dropTitle">Drop <code>run_log.jsonl</code> here</strong></p>
+    <label class="file-label" for="fileInput" data-i18n="loadBtn">Load run_log.jsonl</label>
     <input type="file" id="fileInput" accept=".jsonl,.json,.log,.txt">
-    <div class="hint">Runs entirely in this page &mdash; the file never leaves your browser.</div>
-    <div class="hint">Found at <code>runs/&lt;run_id&gt;/run_log.jsonl</code> after a run.</div>
+    <div class="hint" data-i18n="hint1">Runs entirely in this page &mdash; the file never leaves your browser.</div>
+    <div class="hint" data-i18n-html="hint2">Found at <code>runs/&lt;run_id&gt;/run_log.jsonl</code> after a run.</div>
     <div id="parseWarning"></div>
   </div>
 
   <div id="dashboard">
     <div class="toolbar">
       <div class="section-note" id="loadedNote"></div>
-      <label class="file-label" for="fileInput2">Choose different file</label>
+      <label class="file-label" for="fileInput2" data-i18n="chooseDiff">Choose different file</label>
       <input type="file" id="fileInput2" accept=".jsonl,.json,.log,.txt">
     </div>
     <div class="kpi-row" id="kpiRow"></div>
     <div class="chart-grid">
       <div class="chart-card">
-        <h3>Validation primary &mdash; best-so-far + nodes by lever</h3>
-        <div class="chart-note">each dot is one evaluated node; the line is the best score seen up to that point</div>
+        <h3 data-i18n="chart1Title">Validation primary &mdash; best-so-far + nodes by lever</h3>
+        <div class="chart-note" data-i18n="chart1Note">each dot is one evaluated node; the line is the best score seen up to that point</div>
         <div class="canvas-wrap"><canvas id="primaryChart"></canvas></div>
         <div class="legend" id="leverLegend"></div>
       </div>
       <div class="chart-card">
-        <h3>Ranking quality components</h3>
-        <div class="chart-note">GAUC vs nDCG@5 across evaluated nodes</div>
+        <h3 data-i18n="chart2Title">Ranking quality components</h3>
+        <div class="chart-note" data-i18n="chart2Note">GAUC vs nDCG@5 across evaluated nodes</div>
         <div class="canvas-wrap"><canvas id="componentChart"></canvas></div>
         <div class="legend"><span><i style="background:var(--accent)"></i>GAUC</span><span><i style="background:var(--ok)"></i>nDCG@5</span></div>
       </div>
       <div class="chart-card">
-        <h3>Spend per node</h3>
-        <div class="chart-note">bars = per-node estimate; line = cumulative</div>
+        <h3 data-i18n="chart3Title">Spend per node</h3>
+        <div class="chart-note" data-i18n="chart3Note">bars = per-node estimate; line = cumulative</div>
         <div class="canvas-wrap"><canvas id="costChart"></canvas></div>
       </div>
       <div class="chart-card">
-        <h3>Wall-clock per node</h3>
-        <div class="chart-note">seconds, colored by outcome</div>
+        <h3 data-i18n="chart4Title">Wall-clock per node</h3>
+        <div class="chart-note" data-i18n="chart4Note">seconds, colored by outcome</div>
         <div class="canvas-wrap"><canvas id="wallChart"></canvas></div>
       </div>
     </div>
 
-    <h2 class="section-head">Metrics table</h2>
-    <div class="section-note">Every evaluated node's validation GAUC, nDCG@5 and primary.</div>
+    <div class="section-head-row">
+      <h2 class="section-head" data-i18n="metricsHead">Metrics table</h2>
+      <button class="info-btn" data-info="metrics" aria-label="What is this?">i</button>
+      <div class="info-pop" id="infoMetrics"></div>
+    </div>
+    <div class="section-note" data-i18n="metricsNote">Every evaluated node's validation GAUC, nDCG@5 and primary.</div>
     <div class="table-scroll"><table class="metrics-full" id="metricsTable"></table></div>
 
-    <h2 class="section-head">Node log</h2>
-    <div class="section-note">Click a row for the full hypothesis, the config diff, and events.</div>
+    <div class="section-head-row" id="nodeLogSection">
+      <h2 class="section-head" data-i18n="nodeLogHead">Node log</h2>
+      <button class="info-btn" data-info="logs" aria-label="What is this?">i</button>
+      <div class="info-pop" id="infoLogs"></div>
+    </div>
+    <div class="section-note" data-i18n="nodeLogNote">Click a row for the full hypothesis, the config diff, and events.</div>
     <div id="iterList"></div>
   </div>
 
-  <footer class="note" id="footNote">
+  <footer class="note" id="footNote" data-i18n="footerNote">
     Spend is an estimate from logged token counts at the editable per-MTok rate above. This viewer needs no server and no network (the chart library is built in).
   </footer>
+</div>
+
+<div id="tourScrim" hidden></div>
+<div class="tour-card" id="tourCard" hidden>
+  <button class="tour-close" id="tourClose" aria-label="Close guide">&times;</button>
+  <div class="tour-title"></div>
+  <div class="tour-body"></div>
+  <div class="tour-foot">
+    <span class="tour-step"></span>
+    <span class="tour-btns">
+      <button class="tour-btn tour-skip" id="tourSkip"></button>
+      <button class="tour-btn tour-next" id="tourNext"></button>
+    </span>
+  </div>
 </div>
 
 <script>
@@ -175,6 +230,100 @@
   "use strict";
   var records = [];
   var LEVERS = ["A","B","C","D","F","resume","-"];
+
+  // ---------- i18n ----------
+  var STR = {
+    en: {
+      eyebrow:"kuairand agent · best-first tree search", title:"Experiment Log",
+      subtitle:"Every node the agent tried, colored by lever, with the best-so-far envelope over the search tree — read entirely in your browser, offline.",
+      dropTitle:"Drop <code>run_log.jsonl</code> here, or choose the file below.",
+      loadBtn:"Load run_log.jsonl",
+      hint1:"Runs entirely in this page — the file never leaves your browser.",
+      hint2:"Found at <code>runs/&lt;run_id&gt;/run_log.jsonl</code> after a run.",
+      chooseDiff:"Choose different file",
+      chart1Title:"Validation primary — best-so-far + nodes by lever",
+      chart1Note:"each dot is one evaluated node; the line is the best score seen up to that point",
+      chart2Title:"Ranking quality components", chart2Note:"GAUC vs nDCG@5 across evaluated nodes",
+      chart3Title:"Spend per node", chart3Note:"bars = per-node estimate; line = cumulative",
+      chart4Title:"Wall-clock per node", chart4Note:"seconds, colored by outcome",
+      legendBest:"best-so-far",
+      metricsHead:"Metrics table", metricsNote:"Every evaluated node's validation GAUC, nDCG@5 and primary.",
+      nodeLogHead:"Node log", nodeLogNote:"Click a row for the full hypothesis, the config diff, and events.",
+      thNode:"Node", thLever:"Lever", thStatus:"Status", thGauc:"GAUC", thNdcg:"nDCG@5", thPrimary:"Primary",
+      kpiNodesLabel:"Nodes evaluated", kpiBestLabel:"Best validation primary", kpiBestNone:"none yet",
+      kpiWallLabel:"Wall-clock", kpiWallSub:"sum of node runtimes",
+      kpiSpendLabel:"Est. spend", kpiSpendRate:"rate $", kpiSpendPer:" per MTok in/out",
+      statusWord:{improved:"improved", no_gain:"no_gain", abandoned:"abandoned", duplicate:"duplicate", root:"root"},
+      leverRoot:"root", parentLabel:"parent: ",
+      footerNote:"Spend is an estimate from logged token counts at the editable per-MTok rate above. This viewer needs no server and no network (the chart library is built in).",
+      sourcePrefix:"source: ",
+      noValidLines:"No valid JSON lines found. Expecting runs/<run_id>/run_log.jsonl.",
+      skippedLines:function(n){ return "Skipped "+n+" unreadable line(s)."; },
+      loadedNote:function(n,filename){ return n+" node record"+(n===1?"":"s")+" loaded"+(filename?" from "+filename:"")+"."; },
+      abandonedSub:function(n){ return n+" abandoned"; },
+      bestSub:function(nodeId,lever){ return "node "+nodeId+" · lever "+lever; },
+      tourIntroTitle:"Language", tourIntroBody:"Switch between English and 中文 any time with this button — your choice is saved on this device. Load a run_log.jsonl below to see a quick walkthrough of the dashboard.",
+      tourMetricsTitle:"Metrics", tourMetricsBody:"The numbers and charts here summarize every experiment: score, ranking quality, cost and runtime. The metrics table further down has the exact values.",
+      tourLogsTitle:"What the log is", tourLogsBody:"This is the node log: every experiment (“node”) from the run_log.jsonl file you loaded, newest first. Each one is a hypothesis the agent tested. Click any row to expand it and see the full hypothesis text, the exact code change (diff) it made, and what happened when it was trained and evaluated.",
+      tourNext:"Next", tourDone:"Done", tourGotIt:"Got it", tourSkip:"Skip"
+    },
+    zh: {
+      eyebrow:"kuairand 智能体 · 最佳优先树搜索", title:"实验日志",
+      subtitle:"智能体尝试过的每一个节点，按干预类型着色，并显示搜索树上的历史最佳分数曲线——完全在浏览器本地离线查看。",
+      dropTitle:"将 <code>run_log.jsonl</code> 拖拽到此处，或在下方选择文件。",
+      loadBtn:"选择 run_log.jsonl 文件",
+      hint1:"本页面完全在本地运行——文件不会离开您的浏览器。",
+      hint2:"运行结束后可在 <code>runs/&lt;run_id&gt;/run_log.jsonl</code> 中找到该文件。",
+      chooseDiff:"选择其他文件",
+      chart1Title:"验证集主指标——历史最佳曲线 + 按干预类型着色的节点",
+      chart1Note:"每个点代表一个已评估节点；曲线为截至该点的历史最佳分数",
+      chart2Title:"排序质量分项", chart2Note:"各已评估节点的 GAUC 与 nDCG@5 对比",
+      chart3Title:"单节点花费", chart3Note:"柱状图为单节点预估花费；曲线为累计花费",
+      chart4Title:"单节点耗时", chart4Note:"单位：秒，按结果着色",
+      legendBest:"历史最佳",
+      metricsHead:"指标表", metricsNote:"每个已评估节点的验证集 GAUC、nDCG@5 与主指标。",
+      nodeLogHead:"节点日志", nodeLogNote:"点击每一行可查看完整假设、配置差异与事件记录。",
+      thNode:"节点", thLever:"干预类型", thStatus:"状态", thGauc:"GAUC", thNdcg:"nDCG@5", thPrimary:"主指标",
+      kpiNodesLabel:"已评估节点数", kpiBestLabel:"最佳验证主指标", kpiBestNone:"暂无",
+      kpiWallLabel:"总耗时", kpiWallSub:"各节点运行时间总和",
+      kpiSpendLabel:"预估花费", kpiSpendRate:"费率 $", kpiSpendPer:" /百万输入·输出 token",
+      statusWord:{improved:"提升", no_gain:"无提升", abandoned:"已放弃", duplicate:"重复", root:"根节点"},
+      leverRoot:"根节点", parentLabel:"父节点：",
+      footerNote:"花费为根据记录的 token 数量，按上方可编辑的百万 token 费率估算得出。本查看器无需服务器、无需联网（图表功能已内置）。",
+      sourcePrefix:"来源：",
+      noValidLines:"未找到有效的 JSON 行。应为 runs/<run_id>/run_log.jsonl 格式的文件。",
+      skippedLines:function(n){ return "已跳过 "+n+" 行无法解析的内容。"; },
+      loadedNote:function(n,filename){ return "已加载 "+n+" 条节点记录"+(filename?"（来自 "+filename+"）":"")+"。"; },
+      abandonedSub:function(n){ return n+" 个已放弃"; },
+      bestSub:function(nodeId,lever){ return "节点 "+nodeId+" · 干预类型 "+lever; },
+      tourIntroTitle:"语言切换", tourIntroBody:"点击此按钮可随时切换中文与英文界面，您的选择会保存在本设备上。在下方加载 run_log.jsonl 后，还会有一段简短的仪表盘引导。",
+      tourMetricsTitle:"指标", tourMetricsBody:"这里的数字与图表汇总了每个实验的分数、排序质量、花费与耗时。下方的指标表中有精确数值。",
+      tourLogsTitle:"日志是什么", tourLogsBody:"这里是节点日志：你所加载的 run_log.jsonl 文件中的每一次实验（即每个「节点」），按最新优先排列。每一条记录都是智能体测试过的一个假设。点击任意一行可展开查看完整的假设内容、具体的代码修改（diff），以及训练和评估后的实际结果。",
+      tourNext:"下一步", tourDone:"完成", tourGotIt:"知道了", tourSkip:"跳过"
+    }
+  };
+  var LANG = localStorage.getItem("hlLang") || ((navigator.language||"").toLowerCase().indexOf("zh")===0 ? "zh" : "en");
+  function T(){ return STR[LANG] || STR.en; }
+  function setLang(l){
+    LANG = l; try{ localStorage.setItem("hlLang", l); }catch(e){}
+    document.documentElement.lang = (l==="zh"?"zh-CN":"en");
+    applyI18n();
+    if (records.length) render();
+  }
+  function applyI18n(){
+    var t = T();
+    document.querySelectorAll("[data-i18n]").forEach(function(el){
+      var k = el.getAttribute("data-i18n"); if (t[k]!=null) el.textContent = t[k];
+    });
+    document.querySelectorAll("[data-i18n-html]").forEach(function(el){
+      var k = el.getAttribute("data-i18n-html"); if (t[k]!=null) el.innerHTML = t[k];
+    });
+    document.getElementById("infoMetrics").textContent = t.tourMetricsBody;
+    document.getElementById("infoLogs").textContent = t.tourLogsBody;
+    document.getElementById("tourSkip").textContent = t.tourSkip;
+    var warn = document.getElementById("parseWarning");
+    if (warn.dataset.state === "empty") warn.textContent = t.noValidLines;
+  }
 
   function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
   function leverColor(l){ return cssVar("--lv-" + (l === "-" ? "none" : l)) || cssVar("--ink-muted"); }
@@ -187,21 +336,28 @@
   function wall(r){ return (r.cost&&r.cost.wall_clock_s)||0; }
   function hasMetric(r){ return r.metrics && typeof r.metrics.primary_valid === "number"; }
   function prim(r){ return hasMetric(r) ? r.metrics.primary_valid : null; }
+  function statusWord(s){ var w=T().statusWord; return (w&&w[s]) || s; }
 
   // ---------- parsing ----------
+  var currentFilename = null;
+  function refreshLoadedLabels(){
+    document.getElementById("sourceLine").textContent = currentFilename ? (T().sourcePrefix + currentFilename) : "";
+    document.getElementById("loadedNote").textContent = T().loadedNote(records.length, currentFilename);
+  }
   function loadText(text, filename) {
     var lines = text.split(/\r?\n/), out = [], errors = 0;
     for (var i=0;i<lines.length;i++){ var t=lines[i].trim(); if(!t) continue;
       try { out.push(JSON.parse(t)); } catch(e){ errors++; } }
     var warn = document.getElementById("parseWarning");
-    if (!out.length){ warn.textContent = "No valid JSON lines found. Expecting runs/<run_id>/run_log.jsonl."; return; }
-    warn.textContent = errors ? ("Skipped "+errors+" unreadable line(s).") : "";
+    if (!out.length){ warn.dataset.state = "empty"; warn.textContent = T().noValidLines; return; }
+    warn.dataset.state = ""; warn.textContent = errors ? T().skippedLines(errors) : "";
     records = out;
-    document.getElementById("sourceLine").textContent = filename ? ("source: "+filename) : "";
-    document.getElementById("loadedNote").textContent = records.length + " node record" + (records.length===1?"":"s") + " loaded" + (filename?" from "+filename:"") + ".";
+    currentFilename = filename || null;
+    refreshLoadedLabels();
     document.getElementById("dashboard").classList.add("visible");
     document.getElementById("dropzone").style.display = "none";
     render();
+    maybeStartDataTour();
   }
   function handleFile(f){ if(!f) return; var r=new FileReader(); r.onload=function(e){ loadText(e.target.result, f.name); }; r.readAsText(f); }
   ["fileInput","fileInput2"].forEach(function(id){ document.getElementById(id).addEventListener("change", function(e){ handleFile(e.target.files[0]); }); });
@@ -264,8 +420,8 @@
     // lever legend (only levers present)
     var present={}; records.forEach(function(r){ if(hasMetric(r)) present[r.lever]=1; });
     document.getElementById("leverLegend").innerHTML = LEVERS.filter(function(l){return present[l];})
-      .map(function(l){ return '<span><i style="background:'+leverColor(l)+'"></i>'+(l==="-"?"root":l)+'</span>'; }).join("")
-      + '<span><i style="background:'+cssVar("--accent")+';border-radius:2px"></i>best-so-far</span>';
+      .map(function(l){ return '<span><i style="background:'+leverColor(l)+'"></i>'+(l==="-"?T().leverRoot:l)+'</span>'; }).join("")
+      + '<span><i style="background:'+cssVar("--accent")+';border-radius:2px"></i>'+T().legendBest+'</span>';
   }
   function drawComponents(){
     var c=document.getElementById("componentChart"), s=setup(c), ctx=s.ctx, n=records.length;
@@ -299,56 +455,157 @@
 
   // ---------- KPIs / table / list ----------
   function renderKPIs(){
+    var t=T();
     var scored=records.filter(hasMetric), abandoned=records.filter(function(r){return r.status==="abandoned";});
     var best=null; scored.forEach(function(r){ if(!best||prim(r)>prim(best)) best=r; });
     var totalWall=records.reduce(function(a,r){return a+wall(r);},0);
     var totalCost=records.reduce(function(a,r){return a+cost(r);},0);
     var p=price();
     document.getElementById("kpiRow").innerHTML =
-      kpi("Nodes evaluated", scored.length+' <span style="font-size:.9rem;color:var(--ink-faint)">/ '+records.length+'</span>', abandoned.length+" abandoned") +
-      kpi("Best validation primary", best?fmt(prim(best)):"—", best?("node "+best.node_id+" · lever "+(best.lever==="-"?"root":best.lever)):"none yet") +
-      kpi("Wall-clock", fmtDur(totalWall), "sum of node runtimes") +
-      '<div class="kpi"><div class="label">Est. spend</div><div class="value">$'+totalCost.toFixed(2)+
-        '</div><div class="sub">rate $<input class="budget-edit" id="priceIn" type="number" step="0.25" value="'+p.i+'">/'+
-        '<input class="budget-edit" id="priceOut" type="number" step="0.5" value="'+p.o+'"> per MTok in/out</div></div>';
+      kpi(t.kpiNodesLabel, scored.length+' <span style="font-size:.9rem;color:var(--ink-faint)">/ '+records.length+'</span>', t.abandonedSub(abandoned.length)) +
+      kpi(t.kpiBestLabel, best?fmt(prim(best)):"—", best?t.bestSub(best.node_id,(best.lever==="-"?t.leverRoot:best.lever)):t.kpiBestNone) +
+      kpi(t.kpiWallLabel, fmtDur(totalWall), t.kpiWallSub) +
+      '<div class="kpi"><div class="label">'+t.kpiSpendLabel+'</div><div class="value">$'+totalCost.toFixed(2)+
+        '</div><div class="sub">'+t.kpiSpendRate+'<input class="budget-edit" id="priceIn" type="number" step="0.25" value="'+p.i+'">/'+
+        '<input class="budget-edit" id="priceOut" type="number" step="0.5" value="'+p.o+'">'+t.kpiSpendPer+'</div></div>';
     ["priceIn","priceOut"].forEach(function(id){ var el=document.getElementById(id); if(el) el.addEventListener("change",function(){ render(); }); });
   }
   function kpi(label,value,sub){ return '<div class="kpi"><div class="label">'+label+'</div><div class="value">'+value+'</div><div class="sub">'+sub+'</div></div>'; }
   function fmtDur(sec){ var m=Math.floor(sec/60), s=Math.round(sec%60); return m>0?(m+"m "+s+"s"):(s+"s"); }
 
   function renderTable(){
+    var t=T();
     var best=null; records.forEach(function(r){ if(hasMetric(r)&&(!best||prim(r)>prim(best))) best=r; });
     var rows=records.map(function(r){
       var m=r.metrics||{}, ok=hasMetric(r), isBest=(r===best);
-      return '<tr><td>'+esc(r.node_id)+'</td><td><span class="lever-tag">'+(r.lever==="-"?"root":esc(r.lever))+'</span></td>'+
-        '<td><span class="pill '+r.status+'">'+r.status+'</span></td>'+
+      return '<tr><td>'+esc(r.node_id)+'</td><td><span class="lever-tag">'+(r.lever==="-"?t.leverRoot:esc(r.lever))+'</span></td>'+
+        '<td><span class="pill '+r.status+'">'+esc(statusWord(r.status))+'</span></td>'+
         '<td>'+(ok?fmt(m.GAUC):"—")+'</td><td>'+(ok?fmt(m["nDCG@5"]):"—")+'</td>'+
         '<td'+(isBest?' class="best-cell"':'')+'>'+(ok?fmt(m.primary_valid):"—")+'</td></tr>';
     }).join("");
     document.getElementById("metricsTable").innerHTML =
-      '<thead><tr><th>Node</th><th>Lever</th><th>Status</th><th>GAUC</th><th>nDCG@5</th><th>Primary</th></tr></thead><tbody>'+rows+'</tbody>';
+      '<thead><tr><th>'+t.thNode+'</th><th>'+t.thLever+'</th><th>'+t.thStatus+'</th><th>'+t.thGauc+'</th><th>'+t.thNdcg+'</th><th>'+t.thPrimary+'</th></tr></thead><tbody>'+rows+'</tbody>';
   }
   function renderList(){
+    var t=T();
     document.getElementById("iterList").innerHTML = records.slice().reverse().map(function(r){
       var ok=hasMetric(r), m=r.metrics||{};
       var body = '<div class="hyp-full">'+esc(r.hypothesis)+'</div>' +
         (ok?('<table class="metric-table"><tr><td>valid</td><td>GAUC '+fmt(m.GAUC)+'</td><td>nDCG@5 '+fmt(m["nDCG@5"])+'</td><td>primary <b>'+fmt(m.primary_valid)+'</b></td></tr></table>'):"") +
         (r.code_diff?('<div class="diff-box">'+esc(r.code_diff.slice(0,4000))+'</div>'):"") +
         ((r.events&&r.events.length)?('<div class="diff-box">'+esc(JSON.stringify(r.events))+'</div>'):"") +
-        '<div class="meta-strip"><span>parent: '+esc(r.parent_id||"—")+'</span><span>'+fmt(wall(r),1)+'s</span><span>'+tok(r).toLocaleString()+' tok</span><span>$'+cost(r).toFixed(3)+'</span></div>';
+        '<div class="meta-strip"><span>'+t.parentLabel+esc(r.parent_id||"—")+'</span><span>'+fmt(wall(r),1)+'s</span><span>'+tok(r).toLocaleString()+' tok</span><span>$'+cost(r).toFixed(3)+'</span></div>';
       return '<details class="iter-card" data-status="'+r.status+'"><summary>'+
         '<span class="iter-num">#'+esc(r.node_id)+'</span>'+
-        '<span class="lever-tag">'+(r.lever==="-"?"root":esc(r.lever))+'</span>'+
-        '<span class="pill '+r.status+'">'+r.status+'</span>'+
+        '<span class="lever-tag">'+(r.lever==="-"?t.leverRoot:esc(r.lever))+'</span>'+
+        '<span class="pill '+r.status+'">'+esc(statusWord(r.status))+'</span>'+
         '<span class="hyp-preview">'+esc(r.hypothesis||"")+'</span>'+
         (ok?('<span class="summary-metrics">primary <b>'+fmt(m.primary_valid)+'</b></span>'):"")+
         '</summary><div class="iter-body">'+body+'</div></details>';
     }).join("");
   }
 
-  function render(){ renderKPIs(); try{ drawPrimary(); drawComponents(); drawCost(); drawWall(); }catch(e){ console.error(e); } renderTable(); renderList(); }
+  function render(){ refreshLoadedLabels(); renderKPIs(); try{ drawPrimary(); drawComponents(); drawCost(); drawWall(); }catch(e){ console.error(e); } renderTable(); renderList(); }
   window.loadText = loadText;   // exposed for programmatic/testing use
   var to; window.addEventListener("resize", function(){ clearTimeout(to); to=setTimeout(function(){ if(records.length) render(); },150); });
   if(window.matchMedia) window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function(){ if(records.length) render(); });
+
+  // ---------- language toggle ----------
+  document.getElementById("langToggle").addEventListener("click", function(){ setLang(LANG==="zh"?"en":"zh"); });
+
+  // ---------- info popovers ----------
+  document.querySelectorAll(".info-btn").forEach(function(btn){
+    btn.addEventListener("click", function(e){
+      e.stopPropagation();
+      var pop = document.getElementById(btn.dataset.info==="metrics"?"infoMetrics":"infoLogs");
+      var open = pop.classList.contains("open");
+      document.querySelectorAll(".info-pop").forEach(function(p){ p.classList.remove("open"); });
+      if(!open) pop.classList.add("open");
+    });
+  });
+  document.addEventListener("click", function(){ document.querySelectorAll(".info-pop").forEach(function(p){ p.classList.remove("open"); }); });
+
+  // ---------- guided tour ----------
+  var tourCard = document.getElementById("tourCard"), tourScrim = document.getElementById("tourScrim");
+  var introSteps = [{target:"#langToggle", titleKey:"tourIntroTitle", bodyKey:"tourIntroBody", lastLabel:"tourGotIt"}];
+  var dataSteps = [
+    {target:"#kpiRow", titleKey:"tourMetricsTitle", bodyKey:"tourMetricsBody"},
+    {target:"#nodeLogSection", titleKey:"tourLogsTitle", bodyKey:"tourLogsBody", last:true}
+  ];
+  var activeSteps = [], stepIdx = 0;
+
+  function positionCard(target){
+    var r = target.getBoundingClientRect();
+    var cw = tourCard.offsetWidth, ch = tourCard.offsetHeight;
+    var top = r.bottom + 14;
+    if (top + ch > window.innerHeight - 12) top = Math.max(12, r.top - ch - 14);
+    // always clamp fully inside the viewport — a target that is only partway through
+    // scrolling into view (or taller than the viewport) must never push the card,
+    // and its Next/Skip/Done buttons, off-screen and unreachable.
+    top = Math.min(Math.max(12, top), Math.max(12, window.innerHeight - ch - 12));
+    var left = Math.min(Math.max(12, r.left), window.innerWidth - cw - 12);
+    tourCard.style.top = top + "px"; tourCard.style.left = left + "px";
+  }
+  function clearHighlight(){ document.querySelectorAll(".tour-target").forEach(function(el){ el.classList.remove("tour-target"); }); }
+  function endTour(){
+    clearHighlight(); tourCard.hidden = true; tourScrim.hidden = true;
+    window.removeEventListener("resize", repositionActive);
+  }
+  function repositionActive(){
+    if (tourCard.hidden) return;
+    var step = activeSteps[stepIdx]; if(!step) return;
+    var el = document.querySelector(step.target); if(el) positionCard(el);
+  }
+  function showStep(){
+    var t = T();
+    var step = activeSteps[stepIdx];
+    if (!step) { endTour(); return; }
+    var target = document.querySelector(step.target);
+    if (!target) { stepIdx++; showStep(); return; }
+    clearHighlight();
+    target.classList.add("tour-target");
+    tourScrim.hidden = false; tourCard.hidden = false;
+    // instant, not smooth: positionCard() below reads the target's post-scroll
+    // position immediately, and a smooth/animated scroll made that read race the
+    // animation — landing the card (and its exit buttons) off-screen mid-scroll.
+    target.scrollIntoView({block:"center", behavior:"auto"});
+    tourCard.querySelector(".tour-title").textContent = t[step.titleKey];
+    tourCard.querySelector(".tour-body").textContent = t[step.bodyKey];
+    tourCard.querySelector(".tour-step").textContent = (stepIdx+1)+" / "+activeSteps.length;
+    var isLast = (stepIdx === activeSteps.length-1);
+    document.getElementById("tourNext").textContent = isLast ? (step.lastLabel?t[step.lastLabel]:t.tourDone) : t.tourNext;
+    positionCard(target);
+    setTimeout(function(){ positionCard(target); }, 60);
+  }
+  document.getElementById("tourNext").addEventListener("click", function(){
+    stepIdx++;
+    if (stepIdx >= activeSteps.length) { endTour(); } else { showStep(); }
+  });
+  document.getElementById("tourSkip").addEventListener("click", endTour);
+  document.getElementById("tourClose").addEventListener("click", endTour);
+  tourScrim.addEventListener("click", endTour);
+  window.addEventListener("resize", repositionActive);
+
+  function startTour(steps){ activeSteps = steps; stepIdx = 0; showStep(); }
+  function maybeStartIntro(){
+    if (!localStorage.getItem("hlIntroSeen")) {
+      try{ localStorage.setItem("hlIntroSeen","1"); }catch(e){}
+      startTour(introSteps);
+    }
+  }
+  function maybeStartDataTour(){
+    if (!localStorage.getItem("hlDataTourSeen")) {
+      try{ localStorage.setItem("hlDataTourSeen","1"); }catch(e){}
+      setTimeout(function(){ startTour(dataSteps); }, 300);
+    }
+  }
+  document.getElementById("tourReplay").addEventListener("click", function(){
+    if (document.getElementById("dashboard").classList.contains("visible")) startTour(introSteps.concat(dataSteps));
+    else startTour(introSteps);
+  });
+
+  applyI18n();
+  document.documentElement.lang = (LANG==="zh"?"zh-CN":"en");
+  setTimeout(maybeStartIntro, 400);
 })();
 </script>

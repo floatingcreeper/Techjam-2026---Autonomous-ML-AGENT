@@ -1,6 +1,6 @@
 """Ensemble-aware node valuation and statistically honest portfolio assembly.
 
-docs/RESEARCH.md §12 (portfolio findings) measured the thing this module exists for: in the reference run the **weakest
+docs/EN/RESEARCH.md §12 (portfolio findings) measured the thing this module exists for: in the reference run the **weakest
 standalone member** (LightGBM, 0.60205, 3rd of 3) had the **largest leave-one-out contribution**
 (+0.00121). Ranking experiments by standalone primary therefore discards the models that make the
 portfolio work, and calling such a node "rejected" is a scientific error.
@@ -10,9 +10,9 @@ Two jobs:
 1. `valuation()` -- cheap per-node portfolio statistics computed from saved `val_scores.npy`:
    `rank_corr_to_best`, `pair_blend_gain`, `emc`. No training, ever.
 
-2. `assemble_cv()` -- honest assembly. docs/RESEARCH.md §12 measured that grid-searching blend weights on all of valid
+2. `assemble_cv()` -- honest assembly. docs/EN/RESEARCH.md §12 measured that grid-searching blend weights on all of valid
    and then reporting that same maximised number carries **+0.00072** of optimism, roughly half the
-   apparent ensemble gain. An earlier draft of docs/SYSTEM.md §15 proposed greedy selection scored on a "holdout"
+   apparent ensemble gain. An earlier draft of docs/EN/SYSTEM.md §15 proposed greedy selection scored on a "holdout"
    half -- but a subset consulted once per greedy step to choose members is a SELECTION set, and
    reporting on it is biased by exactly that mechanism. What is implemented here instead is user-level
    K-fold cross-validation of the whole procedure:
@@ -46,7 +46,7 @@ class Member:
 def _weight_grid(m: int, step: float = 0.25):
     """Compositions of 1.0 into m non-negative parts on a `step` lattice.
 
-    Coarse on purpose: docs/RESEARCH.md §12 measured that a 66-point simplex on 22k users overfits the weights. A
+    Coarse on purpose: docs/EN/RESEARCH.md §12 measured that a 66-point simplex on 22k users overfits the weights. A
     coarser lattice loses ~nothing and generalises better.
     """
     n = int(round(1.0 / step))

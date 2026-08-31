@@ -6,7 +6,7 @@ Two independent checks, because a hand-written declaration drifts:
             can reach. Catches typos and fields nothing anywhere reads.
   [runtime] the decisive one. On the subsampled debug cache, flip a knob and compare predictions:
             a HONOURED knob must change them; a NOT-HONOURED knob must leave them bit-identical.
-            This is what docs/RESEARCH.md §7 (BPR) / docs/SYSTEM.md §11 was actually about.
+            This is what docs/EN/RESEARCH.md §7 (BPR) / docs/EN/SYSTEM.md §11 was actually about.
 
 Run: cudaenv/Scripts/python.exe -m tests.test_blockspec
 """

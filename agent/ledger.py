@@ -1,9 +1,9 @@
-"""Cross-run evidence ledger + ResearchInsight -- docs/SYSTEM.md §14 (cross-run ledger).
+"""Cross-run evidence ledger + ResearchInsight -- docs/EN/SYSTEM.md §14 (cross-run ledger).
 
 Why this exists, measured
 -------------------------
 `Memory` is constructed per run directory and every run starts empty, so the agent can only ever see
-one run's worth of evidence. docs/RESEARCH.md §8 measured the cost: the reference run's single most confident
+one run's worth of evidence. docs/EN/RESEARCH.md §8 measured the cost: the reference run's single most confident
 conclusion ("multi-task DIN helps, +0.00082") is contradicted when the 8 historical runs that contain
 BOTH arms are pooled -- adding aux heads to DIN+BPR is worse in **8 of 8 runs**, paired mean -0.00037,
 SE 0.00009, t = -4.16. The agent produced the strongest result in its own history by accident and
@@ -119,7 +119,7 @@ class ResearchInsight:
 def paired_arms(entries, cache_version, code_state, control_arm, treatment_arm):
     """Within-run paired comparison of two arms across the ledger.
 
-    Pairing is what gave docs/RESEARCH.md §8 its result: it removes confounding by code state, hardware and run
+    Pairing is what gave docs/EN/RESEARCH.md §8 its result: it removes confounding by code state, hardware and run
     conditions, which is exactly what makes unpaired pooling of historical rows uninterpretable.
     """
     usable = [e for e in entries if compatible(e, cache_version, code_state)]

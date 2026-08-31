@@ -43,7 +43,7 @@ def build(cache_dir, out_dir, n_train=20_000, n_other=10_000, seed=0):
             mm = json.loads(mp.read_text())
             if "sizes" in mm:
                 # Only claim sizes for splits this sub-cache actually holds. Since v7 the aux cache
-                # holds train only (the valid/test slices are label-derived holdout data, docs/SYSTEM.md §8), so a
+                # holds train only (the valid/test slices are label-derived holdout data, docs/EN/SYSTEM.md §8), so a
                 # blanket `sizes = new_sizes` would advertise arrays that do not exist.
                 mm["sizes"] = {k: v for k, v in new_sizes.items()
                                if (d / f"{k}_{stems[0]}.npy").exists()}

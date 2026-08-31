@@ -2,7 +2,7 @@
 
 **The authoritative description of the system as it exists now.** For the scientific record
 (evidence, derivations, negative results) see [RESEARCH.md](RESEARCH.md); for the competition
-narrative see [SUBMISSION.md](SUBMISSION.md); for orientation see the [README](../README.md).
+narrative see [SUBMISSION.md](SUBMISSION.md); for orientation see the [README](../../README.md).
 
 Where this document and any older text disagree, this document and the code win.
 
@@ -722,4 +722,4 @@ never branches). We took Jon's *safety mechanisms*, not his loop.
 
 ---
 
-*[README](../README.md) · [RESEARCH.md](RESEARCH.md) · [SUBMISSION.md](SUBMISSION.md)*
+*[README](../../README.md) · [RESEARCH.md](RESEARCH.md) · [SUBMISSION.md](SUBMISSION.md)*

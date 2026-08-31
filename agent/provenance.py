@@ -1,4 +1,4 @@
-"""Effective-intervention provenance -- docs/SYSTEM.md §11 (config-effectiveness validation).
+"""Effective-intervention provenance -- docs/EN/SYSTEM.md §11 (config-effectiveness validation).
 
 The silent-no-op bug proved that
 
@@ -27,7 +27,7 @@ BLOCKS = ["features", "model", "loss", "train", "infer", "ensemble"]
 
 # Source tree whose contents define the "code state" of an experiment. Two nodes with the same cfg and
 # the same block sources are still not comparable if the libs those blocks delegate to changed -- which
-# is exactly what makes the pooled `din/bce` rows in docs/RESEARCH.md §8 (auxiliary tasks) uninterpretable.
+# is exactly what makes the pooled `din/bce` rows in docs/EN/RESEARCH.md §8 (auxiliary tasks) uninterpretable.
 _CODE_ROOTS = ("pipeline", "agent")
 _FROZEN = ("data.py", "evaluate.py", "submit.py")
 
@@ -143,7 +143,7 @@ def build(intended_delta, validation, cfg, blocks_dir, ext, blockset,
 
 
 def content_signature(cfg, blocks_dir, ext=None) -> str:
-    """CONTENT-based node identity -- docs/SYSTEM.md §12 (deduplication and no-op handling).
+    """CONTENT-based node identity -- docs/EN/SYSTEM.md §12 (deduplication and no-op handling).
 
     The old `signature(cfg, diff)` hashed the unified diff **against the parent**, so two nodes with
     identical configs and identical block sources got different signatures when reached from different

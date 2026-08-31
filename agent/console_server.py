@@ -1,4 +1,4 @@
-"""Research Console server -- docs/SYSTEM.md §19 (Research Console).
+"""Research Console server -- docs/EN/SYSTEM.md §19 (Research Console).
 
 Serves `dashboard/research-console.html` and the real artifacts of a run. Standard library only
 (no Flask, no build step), so it runs anywhere the agent runs.

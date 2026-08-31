@@ -1,4 +1,4 @@
-"""Sequence chronology and behavior-state leakage safety -- docs/RESEARCH.md §10 (sequence chronology) / §6.1.
+"""Sequence chronology and behavior-state leakage safety -- docs/EN/RESEARCH.md §10 (sequence chronology) / §6.1.
 
 Verified INDEPENDENTLY of the builder: the expected history for sampled rows is recomputed from the
 raw logs by a separate implementation and compared against the cached arrays. A builder that asserts
@@ -128,7 +128,7 @@ def main():
     policy = m.get("fb_policy")
     check("cache uses the honest 'train_only' feedback policy",
           policy == seq_build.FB_POLICY_TRAIN_ONLY, str(policy))
-    # Why this matters (MEASURED, docs/RESEARCH.md §11 (behavior-aware history)): under the alternative "leq_split" policy a
+    # Why this matters (MEASURED, docs/EN/RESEARCH.md §11 (behavior-aware history)): under the alternative "leq_split" policy a
     # VALID row could see the outcomes of earlier VALID rows while a TEST row could see no test-window
     # outcomes at all (valid 100% known vs test 75.8%). Behavior-aware DIN then scored +0.0165 on
     # valid -- a gain structurally unavailable at test time. "train_only" treats valid and test

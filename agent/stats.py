@@ -1,9 +1,9 @@
-"""Statistical inference over saved node predictions -- docs/SYSTEM.md §13 (statistical decision machinery).
+"""Statistical inference over saved node predictions -- docs/EN/SYSTEM.md §13 (statistical decision machinery).
 
 Why this module exists
 ----------------------
 There are THREE distinct variances in this benchmark and the old code conflated them
-(docs/RESEARCH.md §4 (noise and uncertainty model)):
+(docs/EN/RESEARCH.md §4 (noise and uncertainty model)):
 
   1. training stochasticity     -- same cfg, same seed. EXACTLY 0.00000 for FM and LightGBM
                                    (measured over 24 and 14 nodes); sigma ~ 0.00025 for DIN (torch).
@@ -165,7 +165,7 @@ CONFIRMED, PROMISING, INCONCLUSIVE, REJECTED = "confirmed", "promising", "inconc
 
 
 def classify_evidence(p_gt0: float, hi: float = 0.90, lo_band: float = 0.60) -> str:
-    """Map P(delta>0) onto an evidence class (docs/SYSTEM.md §13-14).
+    """Map P(delta>0) onto an evidence class (docs/EN/SYSTEM.md §13-14).
 
     This is EVIDENCE about an effect. It is deliberately NOT the tree's adoption status: a node can be
     `inconclusive` and still be the current champion, and a node can be `rejected` standalone and still
@@ -199,7 +199,7 @@ def per_user_rank(scores, users) -> np.ndarray:
 
 
 def rank_corr(ra, rb) -> float:
-    """Correlation of two within-user percentile-rank vectors: the diversity statistic (docs/RESEARCH.md §12)."""
+    """Correlation of two within-user percentile-rank vectors: the diversity statistic (docs/EN/RESEARCH.md §12)."""
     a, b = np.asarray(ra, np.float64), np.asarray(rb, np.float64)
     if a.std() == 0 or b.std() == 0:
         return 1.0
