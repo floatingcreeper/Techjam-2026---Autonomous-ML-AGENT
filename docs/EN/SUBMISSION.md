@@ -141,7 +141,7 @@ root  reproduce the official FM baseline                      0.60147
 it 1  A  "Change the loss function to BPR to optimize
          pairwise ranking"                                    0.60361  confirmed  P(Δ>0)=1.00
 it 2  D  "Adopt LightGBM as the model family"                 0.60205  rejected  (standalone)
-         → but rank corr 0.860, the most decorrelated member → kept as a portfolio candidate
+         → but rank corr 0.860, the most decorrelated model found → kept as a portfolio candidate
 it 3  B  "Adopt the DIN model family with BPR loss"           0.60366  inconclusive  P(Δ>0)=0.52
 it 4  —  proposal rejected as a STRUCTURAL NO-OP before training → re-proposed
 it 4  C  "Add auxiliary tasks (click and like)"               0.60247  rejected
@@ -185,15 +185,16 @@ optimism averaged **+0.00072**, i.e. roughly half of a naively reported ensemble
 
 | Member | Standalone | Rank corr | Marginal contribution |
 |---|---:|---:|---:|
-| FM + BPR | 0.60361 | 0.906 | **+0.00229** |
-| **LightGBM** | **0.60205** *(weaker)* | **0.860** *(most decorrelated)* | **+0.00050** |
-| DIN | 0.60366 *(best single)* | 1.000 | +0.00040 |
-| FM + BCE (root) | 0.60147 *(weakest)* | 0.852 | +0.00017 |
+| FM + BPR | 0.60361 | 0.906 | +0.00025 |
+| **LightGBM** | **0.60205** *(weaker)* | **0.860** *(most decorrelated of those found)* | **+0.00028** |
+| DIN | 0.60366 *(best single)* | 1.000 | +0.00028 |
+| FM + BCE (root) | 0.60147 *(weakest)* | **0.852** *(most decorrelated overall)* | +0.00017 |
 | DIN + aux | 0.60247 | 0.974 | **+0.00000** *(redundant)* |
 
-**A weaker model can be worth more than a stronger one.** LightGBM earns a portfolio slot at a
-below-champion score because its errors are decorrelated; the auxiliary-head node, with a *better*
-standalone score, contributes nothing. Selecting on standalone score alone would have kept the wrong
+**A weaker model can be worth more than a stronger one.** LightGBM contributes **more than the
+FM+BPR node** (+0.00028 vs +0.00025) while scoring 0.0016 *lower* standalone, because its errors are
+decorrelated; the auxiliary-head node, with a standalone score *above* LightGBM's, contributes
+exactly nothing. Selecting on standalone score alone would have kept the wrong
 model.
 
 ### Robustness and recovery

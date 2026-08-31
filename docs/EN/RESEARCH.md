@@ -479,16 +479,19 @@ random-exposure split where per-user impression counts are 5× higher (§15).
 
 | member | family | standalone | rank corr to champion | EMC (leave-one-out) |
 |---|---|---:|---:|---:|
-| `n1` | fm + BPR | 0.60361 | 0.906 | **+0.00229** |
-| `n2` | lgbm | **0.60205** (weakest kept) | **0.860** (most decorrelated) | +0.00050 |
-| `n3` | din | 0.60366 (best single) | 1.000 | +0.00040 |
-| `root` | fm + BCE | 0.60147 (weakest overall) | 0.852 | +0.00017 |
+| `n1` | fm + BPR | 0.60361 | 0.906 | +0.00025 |
+| `n2` | lgbm | **0.60205** (2nd weakest) | **0.860** (most decorrelated of the models the agent *discovered*) | **+0.00028** |
+| `n3` | din | 0.60366 (best single) | 1.000 | +0.00028 |
+| `root` | fm + BCE | 0.60147 (weakest overall) | **0.852** (most decorrelated overall) | +0.00017 |
 | `n4` | din + aux | 0.60247 | 0.974 | **+0.00000** |
 
-Two readings that matter: LightGBM is the **most decorrelated** member and earns a portfolio slot
-despite a standalone score below the champion; and the auxiliary-head node is **redundant**
-(corr 0.974, EMC 0.00000) despite a mid-table standalone score. Ranking experiments by standalone
-primary alone would keep the wrong one.
+Two readings that matter. **LightGBM contributes more than the FM+BPR node (+0.00028 vs +0.00025)
+despite scoring 0.0016 lower standalone** — it is the most decorrelated model the agent *discovered*
+(the FM baseline itself is more decorrelated still, at 0.852, but it was given, not found). And the
+auxiliary-head node is **redundant** — corr 0.974, EMC exactly **0.00000** — despite a standalone
+score *above* LightGBM's. Ranking experiments by standalone primary alone would have kept the wrong
+one. Note the absolute contributions are small (2–3 in the fourth decimal); the ordering is the
+finding, not the magnitude.
 
 **In-sample ensemble numbers are optimistic, and the size of the bias was measured.** **[MEASURED]**
 Eight random 50/50 user splits, weights tuned on half A and evaluated on half B:
@@ -672,9 +675,9 @@ constraint here is **statistical resolution** (§4): with SE ≈ 0.0009 no searc
 1. **BPR is a real lever worth ≈+0.0021** over the FM baseline (0.60147 → 0.60361), reliable
    (std 0.00010, n=25), and the only single-model effect comfortably above the resolution limit.
 2. **Softmax-CE is a statistically supported negative result** (0.59971, below baseline).
-3. **Standalone score does not predict portfolio value**: the most decorrelated member (LightGBM,
-   corr 0.860) earns a slot at a below-champion standalone score, while an auxiliary-head node with a
-   better standalone score is redundant (EMC 0.00000).
+3. **Standalone score does not predict portfolio value**: LightGBM (corr 0.860, standalone 0.60205)
+   contributes more than the FM+BPR node (standalone 0.60361), while an auxiliary-head node with a
+   *better* standalone score than LightGBM's is redundant (EMC exactly 0.00000).
 4. **In-sample ensemble numbers are optimistic by ≈+0.00072**; the honest gain over the best single
    member is ≈+0.0006–0.0007.
 5. **Behavior-aware history is negative under leakage-free evaluation** (−0.00167; −0.00070 with
