@@ -2,7 +2,7 @@
 
 The control loop is deterministic policy; the LLM roles are the operators.
 
-THREE STOPPING CONCEPTS, kept strictly separate (docs/SYSTEM.md §16):
+THREE STOPPING CONCEPTS, kept strictly separate (docs/EN/SYSTEM.md §16):
 
   1. OFFICIAL   `eps=0.002, N=3` over the best-so-far series of EXECUTED experiments, plus the hard
                 `max_iter=50` cap and the 6 h wall-clock backstop. Read verbatim from
@@ -79,7 +79,7 @@ def _budget_tier(executed, maxit):
 def build_proposer_context(tree, mem, phase, executed, maxit, wall_used, wall_limit,
                            tokens, plateau, feedback=None):
     """What the Proposer sees. Budget figures are informational -- they shape WHICH experiment is
-    chosen before convergence. They are explicitly NOT a quota to consume (docs/SYSTEM.md §16)."""
+    chosen before convergence. They are explicitly NOT a quota to consume (docs/EN/SYSTEM.md §16)."""
     best = tree.best()
     t = mem.research_table()
     lines = [
@@ -144,7 +144,7 @@ def build_coder_context(parent, hyp):
 
 # ------------------------------------------------------------------ run state
 class RunState:
-    """Counters that keep the benchmark contract auditable (docs/SYSTEM.md §16 accounting table)."""
+    """Counters that keep the benchmark contract auditable (docs/EN/SYSTEM.md §16 accounting table)."""
 
     def __init__(self, cfg, maxit):
         self.experiments_executed = 0        # trained + produced metrics; compared against max_iter
@@ -337,7 +337,7 @@ def _propose_executable(cfg, driver, run_dir, tree, mem, ev_log, rng, it, phase,
     Returns (parent, hyp, node_dir, blocks, ncfg, diff, ext, prov, sig, cost) or None.
 
     A rejected proposal never trains a model, never appends to `best_series`, and never advances
-    `experiments_executed` (docs/SYSTEM.md §16 accounting). It is logged and counted as a proposal attempt so the
+    `experiments_executed` (docs/EN/SYSTEM.md §16 accounting). It is logged and counted as a proposal attempt so the
     claim stays auditable -- it is NOT presented as a free benchmark iteration.
     """
     feedback = None
@@ -457,7 +457,7 @@ def _propose_executable(cfg, driver, run_dir, tree, mem, ev_log, rng, it, phase,
 
         sig = mutate.signature(ncfg, blocks, ext)
         if mem.seen(sig):
-            # CONTENT-based identity (docs/SYSTEM.md §12): catches a re-run reached from a different parent, which
+            # CONTENT-based identity (docs/EN/SYSTEM.md §12): catches a re-run reached from a different parent, which
             # the old cfg+diff signature missed.
             ev_log.emit(events.GUARD,
                         "Deduplication: this node's content (config + extension + all six block "
@@ -539,7 +539,7 @@ def _iterate(cfg, driver, run_dir, tree, mem, ev, ev_log, rng, it, phase, st,
                                   f"(loss={ncfg.loss_type}, aux={list(ncfg.aux_tasks)}).",
                     node_id=f"n{it}", model_type=ncfg.model_type, loss_type=ncfg.loss_type)
         # `extra_split="test"` on EVERY node: the submitted predictions must come from the same
-        # trained instance whose validation predictions drove selection (docs/SYSTEM.md §18).
+        # trained instance whose validation predictions drove selection (docs/EN/SYSTEM.md §18).
         res, wc = executor.run_node(blocks, node_dir, Path(node_dir) / "cfg.json",
                                     cfg.cache_dir, cfg.budget.per_iter_timeout_s,
                                     extra_split="test")
@@ -574,7 +574,7 @@ def _iterate(cfg, driver, run_dir, tree, mem, ev, ev_log, rng, it, phase, st,
                 f"nDCG@5 {res['nDCG@5']:.5f}) in {wc:.0f}s.",
                 node_id=f"n{it}", **node.metrics, wall_clock_s=round(wc, 1))
 
-    # ---- integrity tripwire (docs/SYSTEM.md §8) --------------------------------------------------------
+    # ---- integrity tripwire (docs/EN/SYSTEM.md §8) --------------------------------------------------------
     if pv > cfg.research.leak_tripwire_primary:
         node.status = "quarantined"
         node.evidence = {"class": "rejected", "reason": "leak_tripwire"}
@@ -607,13 +607,13 @@ def _iterate(cfg, driver, run_dir, tree, mem, ev, ev_log, rng, it, phase, st,
                     "negligible effect (not a no-op).",
                     node_id=f"n{it}", noop_class=node.noop_class)
 
-    # ---- statistical evidence vs. the control (docs/SYSTEM.md §13) --------------------------------------
+    # ---- statistical evidence vs. the control (docs/EN/SYSTEM.md §13) --------------------------------------
     node.evidence = _evidence(cfg, ev, node, parent, tree.best(), sv, pv_parent, ev_log, it)
 
-    # ---- portfolio valuation (docs/SYSTEM.md §15) -- cheap analysis on saved predictions -----------------
+    # ---- portfolio valuation (docs/EN/SYSTEM.md §15) -- cheap analysis on saved predictions -----------------
     _update_portfolio(cfg, ev, tree, node, ev_log, it)
 
-    # ---- Lever E second surface (docs/RESEARCH.md §15) ---------------------------------------------------
+    # ---- Lever E second surface (docs/EN/RESEARCH.md §15) ---------------------------------------------------
     _rand_surface(cfg, node, node_dir, ev_log, it, log)
 
     # ---- adoption (tree shape only -- NOT convergence) ------------------------------------
@@ -623,7 +623,7 @@ def _iterate(cfg, driver, run_dir, tree, mem, ev, ev_log, rng, it, phase, st,
             and blockspec.is_stochastic(ncfg.model_type)):
         # Multi-seed RE-TRAINING is reserved for stochastic families: fm/lgbm have training std
         # 0.00000 at a fixed seed, so re-seeding them measures nothing the free paired bootstrap
-        # does not already measure (docs/RESEARCH.md §4).
+        # does not already measure (docs/EN/RESEARCH.md §4).
         ok, mean, seeds = reeval.confirm(blocks, ncfg, pv, prev_best, cfg.cache_dir,
                                          cfg.budget.per_iter_timeout_s,
                                          str(Path(node_dir) / "reeval"),
@@ -639,7 +639,7 @@ def _iterate(cfg, driver, run_dir, tree, mem, ev, ev_log, rng, it, phase, st,
                     f"quantity from the validation-sample uncertainty reported above.",
                     node_id=f"n{it}", seed_mean=mean, seeds=seeds, kept=ok)
 
-    # ---- research information (docs/SYSTEM.md §16) ------------------------------------------------------
+    # ---- research information (docs/EN/SYSTEM.md §16) ------------------------------------------------------
     node.informative, why = _is_informative(cfg, tree, node, hist)
     st.research_stall = 0 if (node.informative or node.status == "improved") else st.research_stall + 1
 
@@ -706,7 +706,7 @@ def _evidence(cfg, ev, node, parent, champ, sv, parent_sv, ev_log, it):
 
 
 def _update_portfolio(cfg, ev, tree, node, ev_log, it):
-    """Recompute portfolio statistics over the current viable set. Never trains (docs/SYSTEM.md §15)."""
+    """Recompute portfolio statistics over the current viable set. Never trains (docs/EN/SYSTEM.md §15)."""
     users = ev_users_of(ev)
     if users is None:
         return
@@ -762,7 +762,7 @@ def _rand_surface(cfg, node, node_dir, ev_log, it, log):
 
 
 def _is_informative(cfg, tree, node, hist):
-    """Did this experiment yield RESEARCH INFORMATION, independent of performance? (docs/SYSTEM.md §16)
+    """Did this experiment yield RESEARCH INFORMATION, independent of performance? (docs/EN/SYSTEM.md §16)
 
     Affects proposal policy and memory only. It can never postpone official convergence.
     """
@@ -851,7 +851,7 @@ def _val_scores(node):
 
 
 def _test_scores(node):
-    """Test predictions written by the SAME training pass that produced val_scores (docs/SYSTEM.md §18)."""
+    """Test predictions written by the SAME training pass that produced val_scores (docs/EN/SYSTEM.md §18)."""
     p = Path(node.block_dir).parent / "test_scores.npy"
     return np.load(p) if p.exists() else None
 
@@ -943,7 +943,7 @@ def finalize(cfg, run_dir, tree, mem, ev, ev_log, st, best_series, stop_reason, 
         log(f"[finalize] using best single node {best.id} ({best.score():.4f})")
 
     # Training-variance report for a STOCHASTIC finalist. This is reporting only: the submitted
-    # predictions stay those of the instance that was actually selected (docs/SYSTEM.md §18).
+    # predictions stay those of the instance that was actually selected (docs/EN/SYSTEM.md §18).
     training_variance = None
     if cfg.recheck and blockspec.is_stochastic(best.cfg.model_type):
         _, mean, seeds = reeval.confirm(best.block_dir, best.cfg, best.score(), -1.0,
@@ -993,7 +993,7 @@ def finalize(cfg, run_dir, tree, mem, ev, ev_log, st, best_series, stop_reason, 
         "ablation_best_by_lever": _ablation_summary(tree),
         "uncertainty_note": (
             "final_valid_tuned is measured on the same users used to tune the blend weights and is "
-            "OPTIMISTIC (measured optimism ~+0.0007, docs/RESEARCH.md §12 (ensemble optimism)). final_valid_honest is a "
+            "OPTIMISTIC (measured optimism ~+0.0007, docs/EN/RESEARCH.md §12 (ensemble optimism)). final_valid_honest is a "
             "user-level K-fold cross-validation of the whole assembly procedure. 'training_variance' "
             "is a different quantity again: it measures re-training stochasticity, not "
             "validation-sample uncertainty."),

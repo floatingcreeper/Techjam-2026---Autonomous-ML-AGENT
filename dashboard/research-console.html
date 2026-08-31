@@ -15,36 +15,54 @@
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
-body{background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:14px;overflow:hidden}
+body{background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:14px;overflow:hidden;
+     display:flex;flex-direction:column}
 button{font-family:inherit;color:inherit}
+/* minimal scrollbars, everywhere — Firefox's thin variant plus the webkit rule further down */
+*{scrollbar-width:thin;scrollbar-color:#243149 transparent}
 
-/* ---------- status bar ---------- */
-#bar{display:flex;align-items:stretch;gap:0;background:linear-gradient(180deg,#131b2c,#0d1320);
-     border-bottom:1px solid var(--line);height:64px;flex:0 0 auto}
-.stat{padding:9px 14px;border-right:1px solid var(--line);display:flex;flex-direction:column;
-      justify-content:center;min-width:96px}
+/* ---------- status bar ----------
+   Every box below is a fixed width (sized to fit the longer of the EN/ZH label) so the
+   toggle never reflows anything. Compact enough to fit a normal window without needing
+   a horizontal scrollbar; flex-wrap is only a safety net for very narrow windows, where
+   it wraps onto a second line instead of scrolling or clipping. */
+#bar{display:flex;flex-wrap:wrap;align-items:stretch;gap:0;background:linear-gradient(180deg,#131b2c,#0d1320);
+     border-bottom:1px solid var(--line);min-height:64px;flex:0 0 auto}
+.stat{padding:9px 10px;border-right:1px solid var(--line);display:flex;flex-direction:column;
+      justify-content:center;flex:0 0 auto;overflow:hidden}
 .stat .k{font-size:9.5px;letter-spacing:.10em;text-transform:uppercase;color:var(--dim2);
-         white-space:nowrap;margin-bottom:3px}
+         white-space:nowrap;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis}
 .stat .v{font-family:var(--mono);font-size:16px;font-weight:600;line-height:1.1;white-space:nowrap}
 .stat .sub{font-size:10px;color:var(--dim);font-family:var(--mono);margin-top:1px}
 .stat.official{background:rgba(53,211,154,.07);border-left:2px solid var(--ok)}
 .stat.official.pending{background:rgba(255,193,77,.07);border-left-color:var(--warn)}
 .stat.internal{background:rgba(139,155,184,.05)}
-#brand{padding:9px 16px;border-right:1px solid var(--line);display:flex;flex-direction:column;
-       justify-content:center;min-width:210px;background:#0a0e18}
+.stat:has(#k_exp){width:113px} .stat:has(#k_prop){width:91px} .stat:has(#k_wall){width:95px}
+.stat:has(#k_tok){width:97px} .stat:has(#k_best){width:101px} .stat:has(#k_port){width:82px}
+.stat:has(#k_conv){width:117px} .stat:has(#k_int){width:80px}
+#brand{padding:9px 12px;border-right:1px solid var(--line);display:flex;flex-direction:column;
+       justify-content:center;min-width:190px;flex:0 0 190px;background:#0a0e18}
 #brand b{font-size:13px;letter-spacing:.02em}
 #brand span{font-size:10px;color:var(--dim2);font-family:var(--mono)}
 #barspacer{flex:1}
-#ctl{display:flex;align-items:center;gap:8px;padding:0 14px;border-left:1px solid var(--line)}
+#ctl{display:flex;align-items:center;gap:5px;padding:0 8px;border-left:1px solid var(--line);flex:0 0 auto}
 #ctl select,#ctl button{background:#16203a;border:1px solid var(--line2);border-radius:5px;
-    padding:5px 10px;font-size:12px;cursor:pointer;font-family:var(--mono)}
+    padding:5px 8px;font-size:12px;cursor:pointer;font-family:var(--mono);flex:0 0 auto}
 #ctl button:hover{border-color:var(--acc)}
 #ctl button.on{background:var(--acc);color:#06101f;border-color:var(--acc);font-weight:600}
+/* play/live are icon-only (▶ / ❚❚ / ◉ read the same in any language — the full label
+   lives in the title tooltip) so their width never depends on which language is active */
+#langToggle{width:70px}
+#runsel{width:120px;overflow:hidden;text-overflow:ellipsis}
+#play{width:34px;text-align:center}
+#speed{width:58px}
+#live{width:34px;text-align:center}
 
 /* ---------- layout ---------- */
-#main{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);height:calc(100% - 64px)}
-#left{border-right:1px solid var(--line);display:flex;flex-direction:column;min-width:0}
-#right{display:grid;grid-template-rows:auto auto 1fr;min-width:0;overflow:hidden}
+#main{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);flex:1;min-height:0}
+#left{border-right:1px solid var(--line);display:flex;flex-direction:column;min-width:0;min-height:0}
+#right{display:grid;grid-template-rows:auto auto 1fr;min-width:0;min-height:0;overflow:hidden}
+#right>div{min-height:0;display:flex;flex-direction:column}
 .hd{display:flex;align-items:center;gap:9px;padding:8px 14px;background:var(--panel2);
     border-bottom:1px solid var(--line);font-size:10.5px;letter-spacing:.12em;
     text-transform:uppercase;color:var(--dim);flex:0 0 auto}
@@ -52,7 +70,7 @@ button{font-family:inherit;color:inherit}
          text-transform:none;letter-spacing:0}
 
 /* ---------- activity stream ---------- */
-#stream{overflow-y:auto;padding:12px 14px 40px;flex:1;scroll-behavior:smooth}
+#stream{overflow-y:auto;padding:12px 14px 40px;flex:1;min-height:0;scroll-behavior:smooth}
 .card{border:1px solid var(--line);border-left:3px solid var(--line2);border-radius:7px;
       background:var(--panel);margin-bottom:9px;overflow:hidden;animation:in .25s ease}
 @keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
@@ -91,7 +109,7 @@ button{font-family:inherit;color:inherit}
 .det.open{display:block}
 
 /* ---------- panels ---------- */
-.pane{overflow-y:auto;padding:10px 12px;min-height:0}
+.pane{overflow-y:auto;padding:10px 12px;min-height:0;flex:1 1 auto}
 .bucket{margin-bottom:9px}
 .btitle{font-family:var(--mono);font-size:10px;letter-spacing:.07em;margin-bottom:4px;
         display:flex;align-items:center;gap:6px}
@@ -121,59 +139,109 @@ tr.quar td{opacity:.5;text-decoration:line-through}
 #empty{padding:34px 20px;color:var(--dim2);text-align:center;font-size:13px;line-height:1.7}
 #empty code{font-family:var(--mono);background:#111a2b;padding:2px 7px;border-radius:4px;
             color:var(--acc);font-size:12px}
-::-webkit-scrollbar{width:9px;height:9px}
-::-webkit-scrollbar-thumb{background:#24304d;border-radius:5px}
+::-webkit-scrollbar{width:7px;height:7px}
+::-webkit-scrollbar-thumb{background:#243149;border-radius:5px}
+::-webkit-scrollbar-thumb:hover{background:#2f3f60}
 ::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-corner{background:transparent}
 .narr{background:linear-gradient(90deg,rgba(77,163,255,.10),transparent);border:1px solid var(--line);
       border-left:3px solid var(--acc);border-radius:6px;padding:9px 12px;margin-bottom:10px;
       font-size:12.4px;color:var(--dim);line-height:1.6}
 .narr b{color:var(--txt)}
+
+/* ---------- i18n / tour additions ---------- */
+.icon-btn{width:26px;height:26px;border-radius:50%;border:1px solid var(--line2);background:#16203a;
+  color:var(--txt);cursor:pointer;font-family:var(--mono);font-weight:700;font-size:12px}
+.icon-btn:hover{border-color:var(--acc)}
+.info-btn{font-family:var(--mono);font-size:10px;width:16px;height:16px;border-radius:50%;
+  border:1px solid var(--dim2);background:none;color:var(--dim2);cursor:pointer;margin-left:6px;flex:0 0 auto}
+.info-btn:hover{border-color:var(--acc);color:var(--acc)}
+.info-pop{display:none;position:absolute;top:100%;right:0;z-index:80;width:min(300px,80vw);background:var(--panel);
+  border:1px solid var(--line2);border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.5;
+  color:var(--dim);box-shadow:0 10px 28px rgba(0,0,0,.4);margin-top:6px}
+.info-pop.open{display:block}
+.hd{position:relative}
+.tour-target{position:relative;z-index:60;outline:3px solid var(--acc);outline-offset:5px;border-radius:8px}
+#tourScrim{position:fixed;inset:0;background:rgba(4,7,14,.6);z-index:55}
+.tour-card{position:fixed;z-index:90;width:min(320px,86vw);background:var(--panel);border:1px solid var(--line2);
+  border-radius:10px;padding:1rem 1.1rem;box-shadow:0 14px 34px rgba(0,0,0,.45);font-family:var(--sans);color:var(--txt)}
+.tour-card .tour-title{font-weight:700;font-size:15px;margin-bottom:6px;color:var(--acc);padding-right:1.4rem}
+.tour-card .tour-body{color:var(--dim);font-size:13px;line-height:1.55;margin-bottom:14px}
+.tour-card .tour-foot{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.tour-card .tour-step{font-family:var(--mono);font-size:11px;color:var(--dim2)}
+.tour-close{position:absolute;top:0.6rem;right:0.7rem;background:none;border:none;color:var(--dim2);
+  font-size:1.1rem;line-height:1;cursor:pointer;padding:0.2rem 0.35rem;border-radius:4px}
+.tour-close:hover{color:var(--txt);background:#16203a}
+#tourScrim{cursor:pointer}
+button.tour-btn{font-family:var(--sans);font-size:12px;font-weight:600;border:1px solid var(--line2);
+  background:#16203a;color:var(--txt);padding:6px 12px;border-radius:5px;cursor:pointer}
+button.tour-next{background:var(--acc);color:#06101f;border-color:var(--acc)}
+button.tour-skip{background:none;border:none;color:var(--dim2);text-decoration:underline;cursor:pointer;font-size:11px;padding:6px 0}
 </style>
 </head>
 <body>
 
 <div id="bar">
-  <div id="brand"><b>Autonomous ML Research Agent</b><span id="brandsub">KuaiRand-Pure · within-user ranking</span></div>
-  <div class="stat"><div class="k">Experiments</div><div class="v" id="s_exp">—</div><div class="sub" id="s_exps">of 50 hard cap</div></div>
-  <div class="stat"><div class="k">Proposals</div><div class="v" id="s_prop">—</div><div class="sub" id="s_props">attempts</div></div>
-  <div class="stat"><div class="k">Wall-clock</div><div class="v" id="s_wall">—</div><div class="sub">of 6h backstop</div></div>
-  <div class="stat"><div class="k">LLM tokens</div><div class="v" id="s_tok">—</div><div class="sub" id="s_toks">in + out</div></div>
-  <div class="stat"><div class="k">Best single</div><div class="v" id="s_best">—</div><div class="sub" id="s_bests">FM 0.6015</div></div>
-  <div class="stat"><div class="k">Portfolio (honest)</div><div class="v" id="s_port">—</div><div class="sub" id="s_ports">K-fold CV</div></div>
-  <div class="stat official pending" id="s_convbox"><div class="k">Official convergence</div><div class="v" id="s_conv">—</div><div class="sub" id="s_convs">eps=0.002, N=3</div></div>
-  <div class="stat internal"><div class="k">Internal research</div><div class="v" id="s_int">—</div><div class="sub">does not stop the run</div></div>
+  <div id="brand"><b id="brandTitle">Autonomous ML Research Agent</b><span id="brandsub">KuaiRand-Pure · within-user ranking</span></div>
+  <div class="stat"><div class="k" id="k_exp">Experiments</div><div class="v" id="s_exp">—</div><div class="sub" id="s_exps">of 50 hard cap</div></div>
+  <div class="stat"><div class="k" id="k_prop">Proposals</div><div class="v" id="s_prop">—</div><div class="sub" id="s_props">attempts</div></div>
+  <div class="stat"><div class="k" id="k_wall">Wall-clock</div><div class="v" id="s_wall">—</div><div class="sub" id="k_wallsub">of 6h backstop</div></div>
+  <div class="stat"><div class="k" id="k_tok">LLM tokens</div><div class="v" id="s_tok">—</div><div class="sub" id="k_toksub">in + out</div></div>
+  <div class="stat"><div class="k" id="k_best">Best single</div><div class="v" id="s_best">—</div><div class="sub" id="s_bests">FM 0.6015</div></div>
+  <div class="stat"><div class="k" id="k_port">Portfolio (honest)</div><div class="v" id="s_port">—</div><div class="sub" id="s_ports">K-fold CV</div></div>
+  <div class="stat official pending" id="s_convbox"><div class="k" id="k_conv">Official convergence</div><div class="v" id="s_conv">—</div><div class="sub" id="s_convs">eps=0.002, N=3</div></div>
+  <div class="stat internal"><div class="k" id="k_int">Internal research</div><div class="v" id="s_int">—</div><div class="sub" id="k_intsub">does not stop the run</div></div>
   <div id="barspacer"></div>
   <div id="ctl">
+    <button class="icon-btn" id="tourReplay" title="Show guide / 显示引导" aria-label="Show guide">?</button>
+    <button id="langToggle" aria-label="Switch language">EN / 中</button>
     <select id="runsel" title="run"></select>
-    <button id="play" title="play/pause replay">▶ Replay</button>
+    <button id="play" title="play/pause replay" aria-label="Play/pause replay">▶</button>
     <select id="speed" title="replay speed">
       <option value="220">1×</option><option value="120" selected>2×</option>
-      <option value="60">4×</option><option value="18">12×</option><option value="0">instant</option>
+      <option value="60">4×</option><option value="18">12×</option><option value="0" id="opInstant">instant</option>
     </select>
-    <button id="live" title="follow a running agent">◉ Live</button>
+    <button id="live" title="follow a running agent" aria-label="Follow a running agent">◉</button>
   </div>
 </div>
 
 <div id="main">
   <div id="left">
-    <div class="hd">Live research activity
+    <div class="hd" id="hdStream">Live research activity
       <span class="tag" id="streamtag">observe → hypothesize → code → validate → train → evaluate → compare → decide</span>
     </div>
     <div id="stream"><div id="empty">No run loaded.<br><br>Start the console with <code>python -m agent.console_server</code><br>or pick a run from the selector above.</div></div>
   </div>
   <div id="right">
     <div>
-      <div class="hd">Research state <span class="tag">evidence, not adoption status</span></div>
+      <div class="hd" id="hdState">Research state <span class="tag" id="stateTag">evidence, not adoption status</span>
+        <button class="info-btn" data-info="hyp" aria-label="What is this?">i</button>
+        <div class="info-pop" id="infoHyp"></div>
+      </div>
       <div class="pane" id="state" style="max-height:32vh"></div>
     </div>
     <div>
-      <div class="hd">Model portfolio <span class="tag" id="porttag">standalone ≠ ensemble value</span></div>
+      <div class="hd" id="hdPort">Model portfolio <span class="tag" id="porttag">standalone ≠ ensemble value</span></div>
       <div class="pane" id="port" style="max-height:30vh"></div>
     </div>
     <div>
-      <div class="hd">Experiments &amp; integrity</div>
+      <div class="hd" id="hdTree">Experiments &amp; integrity</div>
       <div class="pane" id="tree"></div>
     </div>
+  </div>
+</div>
+
+<div id="tourScrim" hidden></div>
+<div class="tour-card" id="tourCard" hidden>
+  <button class="tour-close" id="tourClose" aria-label="Close guide">&times;</button>
+  <div class="tour-title"></div>
+  <div class="tour-body"></div>
+  <div class="tour-foot">
+    <span class="tour-step"></span>
+    <span style="display:flex;gap:8px;align-items:center;">
+      <button class="tour-btn tour-skip" id="tourSkip"></button>
+      <button class="tour-btn tour-next" id="tourNext"></button>
+    </span>
   </div>
 </div>
 
@@ -185,6 +253,134 @@ const esc=s=>String(s==null?"":s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;","
 
 const S={run:null,all:[],shown:0,timer:null,playing:false,live:false,log:[],report:null,lastSeq:0};
 
+/* ---------------- i18n ---------------- */
+const STR={
+ en:{
+  brandTitle:"Autonomous ML Research Agent", brandSub:"KuaiRand-Pure · within-user ranking",
+  statExp:"Experiments", statExpSub:n=>`of ${n} hard cap`,
+  statProp:"Proposals", statPropAttempts:"attempts", statPropRejected:n=>`${n} rejected pre-training`,
+  statWall:"Wall-clock", statWallSub:"of 6h backstop",
+  statTok:"LLM tokens", statTokSub:"in + out",
+  statBest:"Best single", statBestDelta:s=>`Δ ${s} vs FM`,
+  statPort:"Portfolio", statPortSub:"K-fold CV", statPortSe:s=>`± ${s} K-fold CV`,
+  statConv:"Convergence", statConvReached:"REACHED", statConvOpen:"open",
+  statConvSub:(e,n)=>`eps=${e}, N=${n}`, statConvStop:r=>`stop: ${r}`,
+  statInt:"Internal", statIntSub:"does not stop the run", statIntStall:(rs,pg)=>`stall ${rs} · guard ${pg}`,
+  playTitle:"play/pause replay", replayBtn:"▶ Replay", pauseBtn:"❚❚ Pause",
+  speedTitle:"replay speed", speedInstant:"instant", liveTitle:"follow a running agent", liveBtn:"◉ Live",
+  runExpSuffix:n=>`  ·  ${n} exp`,
+  hdStream:"Live research activity", tagStream:"observe → hypothesize → code → validate → train → evaluate → compare → decide",
+  hdState:"Research state", tagState:"evidence, not adoption status",
+  hdPort:"Model portfolio", tagPort:"standalone ≠ ensemble value",
+  hdTree:"Experiments &amp; integrity",
+  emptyNoRun:'No run loaded.<br><br>Start the console with <code>python -m agent.console_server</code><br>or pick a run from the selector above.',
+  emptyNoEvents:"This run has no event stream.",
+  narrative:"<b>What you are watching.</b> An LLM-driven agent runs the full research loop on a frozen benchmark: it states the bottleneck it sees, proposes an experiment, edits real model code or configuration, has that change validated before any training, trains, evaluates, compares against a control with a paired bootstrap, and decides what to do next — then stops when the organizer's own convergence rule says to. Every line below is an artifact the agent emitted — none of it is narration.",
+  lblObservation:"OBSERVATION", lblHypothesis:"HYPOTHESIS", lblRationale:"RATIONALE", lblEvidence:"EVIDENCE",
+  lblDecision:"DECISION", lblBlocked:"BLOCKED", lblGuard:"GUARD",
+  capConfirmed:"Confirmed  P(Δ&gt;0) ≥ 0.90", capPromising:"Promising",
+  capInconclusive:"Inconclusive — below what this validation set can resolve",
+  capRejected:"Rejected  P(Δ&lt;0) ≥ 0.90", capNoEffect:"No effect — the intervention never reached execution",
+  capabilityDeclined:"Unsupported capability — declined honestly, no code fabricated",
+  plateauNote:"Plateau → strategy change (does not postpone convergence)",
+  noEvidence:"No evidence recorded yet.",
+  thNode:"node", thLever:"lever", thFamily:"family", thPrimary:"primary", thEvidence:"evidence", thStandalone:"standalone",
+  weakestNote:name=>`The <b>weakest standalone</b> model (${name}) has the <b>largest</b> ensemble contribution — standalone score alone would have discarded it.`,
+  selectedPortfolio:"Selected portfolio", families:"families", weights:"weights",
+  tunedAllValid:"tuned-on-all-valid", optimistic:"(optimistic)", honest:"honest", gainOverBest:"gain over best single",
+  portfolioPlaceholder:"Portfolio statistics appear once ≥2 models exist.",
+  integrityHeading:"Integrity — real guard events only", noGuardEvents:"No guard events yet.",
+  NAMES:{frozen_boundary:"Frozen-boundary hash verification",holdout_isolation:"Hidden-test / label-proxy isolation",
+    effective_config:"Effective-config validation (no silent no-ops)",dedup:"Content-based deduplication",
+    check_imports:"Import allowlist + holdout access guard",provenance:"Intended vs executed intervention",
+    leak_tripwire:"Leakage tripwire",honest_rejection:"Honest capability rejection",
+    submission_check:"Frozen submit.py --check",champion_revalidation:"Champion re-validation",
+    noop_detection:"Post-hoc no-op detection"},
+  tourIntroTitle:"Language", tourIntroBody:"Switch between English and 中文 any time with this button — your choice is saved on this device.",
+  tourMetricsTitle:"Metrics", tourMetricsBody:"The status bar summarizes the whole run: experiments executed, proposals attempted, wall-clock time, LLM token spend, best single model, honest portfolio score, and official convergence status.",
+  tourLogsTitle:"Logs", tourLogsBody:"Every step the agent took, in order — observe, hypothesize, code, train, evaluate, compare, decide. Each card is something the agent actually emitted, not narration.",
+  tourHypTitle:"Hypothesis", tourHypBody:"What the agent proposed and whether the evidence confirmed it, rejected it, or couldn't resolve it — plus the model portfolio and integrity checks just below.",
+  tourNext:"Next", tourDone:"Done", tourSkip:"Skip"
+ },
+ zh:{
+  brandTitle:"自主机器学习研究智能体", brandSub:"KuaiRand-Pure · 用户内排序",
+  statExp:"实验数", statExpSub:n=>`上限 ${n} 次`,
+  statProp:"提案数", statPropAttempts:"次尝试", statPropRejected:n=>`${n} 次训练前被拒绝`,
+  statWall:"总耗时", statWallSub:"6小时上限内",
+  statTok:"Token 数", statTokSub:"输入 + 输出",
+  statBest:"最佳单模型", statBestDelta:s=>`Δ ${s}（相对 FM）`,
+  statPort:"模型组合", statPortSub:"K 折交叉验证", statPortSe:s=>`± ${s}（K 折交叉验证）`,
+  statConv:"收敛判定", statConvReached:"已达成", statConvOpen:"进行中",
+  statConvSub:(e,n)=>`eps=${e}，N=${n}`, statConvStop:r=>`停止原因：${r}`,
+  statInt:"内部状态", statIntSub:"不会中止本次运行", statIntStall:(rs,pg)=>`停滞 ${rs} · 护栏 ${pg}`,
+  playTitle:"播放/暂停回放", replayBtn:"▶ 回放", pauseBtn:"❚❚ 暂停",
+  speedTitle:"回放速度", speedInstant:"即时", liveTitle:"跟随正在运行的智能体", liveBtn:"◉ 实时",
+  runExpSuffix:n=>`  ·  ${n} 次实验`,
+  hdStream:"实时研究动态", tagStream:"观察 → 假设 → 编码 → 校验 → 训练 → 评估 → 对比 → 决策",
+  hdState:"研究状态", tagState:"证据，而非采纳状态",
+  hdPort:"模型组合", tagPort:"独立表现 ≠ 组合价值",
+  hdTree:"实验与完整性检查",
+  emptyNoRun:'尚未加载运行记录。<br><br>请用 <code>python -m agent.console_server</code> 启动控制台<br>或在上方选择一次运行。',
+  emptyNoEvents:"该运行没有事件流记录。",
+  narrative:"<b>您正在查看的内容。</b>一个由大语言模型驱动的智能体，在一个固定不变的基准上运行完整的研究循环：它说明自己看到的瓶颈，提出一个实验，修改真实的模型代码或配置，在训练之前先验证该改动是否有效，随后训练、评估，并通过配对自助法与对照组比较，决定下一步做什么——直到触发主办方自己定义的收敛规则才会停止。以下每一行都是智能体实际产出的记录，不是旁白解说。",
+  lblObservation:"观察", lblHypothesis:"假设", lblRationale:"理由", lblEvidence:"证据",
+  lblDecision:"决策", lblBlocked:"已拦截", lblGuard:"护栏检查",
+  capConfirmed:"已确认  P(Δ&gt;0) ≥ 0.90", capPromising:"有潜力",
+  capInconclusive:"不确定——超出当前验证集可分辨的范围",
+  capRejected:"已拒绝  P(Δ&lt;0) ≥ 0.90", capNoEffect:"无影响——该改动从未真正被执行",
+  capabilityDeclined:"能力范围之外——智能体如实拒绝，未编造代码",
+  plateauNote:"进入平台期 → 切换策略（不会推迟收敛判定）",
+  noEvidence:"暂无记录的证据。",
+  thNode:"节点", thLever:"干预类型", thFamily:"模型族", thPrimary:"主指标", thEvidence:"证据", thStandalone:"独立表现",
+  weakestNote:name=>`<b>独立表现最弱</b>的模型（${name}）却拥有<b>最大</b>的组合贡献——仅看独立分数会误将它舍弃。`,
+  selectedPortfolio:"已选组合", families:"模型族", weights:"权重",
+  tunedAllValid:"全验证集调参", optimistic:"（偏乐观）", honest:"诚实估计", gainOverBest:"相对最佳单模型的提升",
+  portfolioPlaceholder:"当模型数量 ≥ 2 时，将显示组合统计信息。",
+  integrityHeading:"完整性检查——仅记录真实的护栏事件", noGuardEvents:"暂无护栏事件。",
+  NAMES:{frozen_boundary:"冻结边界哈希校验",holdout_isolation:"隐藏测试集 / 标签代理隔离",
+    effective_config:"有效配置校验（杜绝静默空操作）",dedup:"基于内容的去重",
+    check_imports:"导入白名单 + 隐藏集访问护栏",provenance:"预期干预 vs 实际执行的干预",
+    leak_tripwire:"数据泄漏警报",honest_rejection:"如实拒绝能力范围之外的请求",
+    submission_check:"冻结版 submit.py --check 校验",champion_revalidation:"冠军模型复核",
+    noop_detection:"事后空操作检测"},
+  tourIntroTitle:"语言切换", tourIntroBody:"点击此按钮可随时切换中文与英文界面，您的选择会保存在本设备上。",
+  tourMetricsTitle:"指标", tourMetricsBody:"状态栏汇总了整次运行的情况：已执行的实验数、尝试的提案数、总耗时、LLM token 花费、最佳单模型表现、诚实估计的组合分数，以及官方收敛判定状态。",
+  tourLogsTitle:"日志", tourLogsBody:"智能体所采取的每一步，按顺序排列——观察、假设、编码、训练、评估、对比、决策。每张卡片都是智能体实际产出的记录，不是旁白解说。",
+  tourHypTitle:"假设", tourHypBody:"智能体提出的假设，以及证据最终是确认、拒绝，还是无法判定——下方还有模型组合与完整性检查。",
+  tourNext:"下一步", tourDone:"完成", tourSkip:"跳过"
+ }
+};
+let LANG = localStorage.getItem("rcLang") || ((navigator.language||"").toLowerCase().indexOf("zh")===0 ? "zh" : "en");
+const T = () => STR[LANG] || STR.en;
+
+function applyI18n(){
+  const t = T();
+  document.documentElement.lang = (LANG==="zh"?"zh-CN":"en");
+  $("brandTitle").textContent = t.brandTitle;
+  if (!S.run) $("brandsub").textContent = t.brandSub;
+  $("k_exp").textContent=t.statExp; $("k_prop").textContent=t.statProp;
+  $("k_wall").textContent=t.statWall; $("k_wallsub").textContent=t.statWallSub;
+  $("k_tok").textContent=t.statTok; $("k_toksub").textContent=t.statTokSub;
+  $("k_best").textContent=t.statBest; $("k_port").textContent=t.statPort;
+  $("k_conv").textContent=t.statConv; $("k_int").textContent=t.statInt; $("k_intsub").textContent=t.statIntSub;
+  $("play").title = (S.playing ? t.pauseBtn : t.replayBtn) + " — " + t.playTitle;
+  $("play").textContent = S.playing ? "❚❚" : "▶";
+  $("speed").title=t.speedTitle; $("opInstant").textContent=t.speedInstant;
+  $("live").title = t.liveBtn + " — " + t.liveTitle; $("live").textContent = "◉";
+  $("hdStream").childNodes[0].textContent = t.hdStream+" ";
+  $("streamtag").textContent=t.tagStream;
+  $("hdState").childNodes[0].textContent = t.hdState+" ";
+  $("stateTag").textContent=t.tagState;
+  $("hdPort").childNodes[0].textContent = t.hdPort+" ";
+  $("porttag").textContent=t.tagPort;
+  $("hdTree").textContent=t.hdTree;
+  $("infoHyp").textContent=t.tourHypBody;
+  $("tourSkip").textContent=t.tourSkip;
+  const emptyEl = document.querySelector("#stream #empty");
+  if (emptyEl && !S.all.length) emptyEl.innerHTML = t.emptyNoRun;
+  if (S.run) redraw();
+}
+
 /* ---------------- data ---------------- */
 async function api(p){ try{const r=await fetch(p);return r.ok?await r.json():null;}catch(e){return null;} }
 
@@ -193,7 +389,7 @@ async function loadRuns(){
   if(!d||!d.runs.length){ sel.innerHTML="<option>no runs</option>"; return; }
   d.runs.filter(r=>r.has_events).forEach(r=>{
     const o=document.createElement("option"); o.value=r.id;
-    o.textContent=r.id.replace("run_","")+(r.experiments!=null?`  ·  ${r.experiments} exp`:"");
+    o.textContent=r.id.replace("run_","")+(r.experiments!=null?T().runExpSuffix(r.experiments):"");
     sel.appendChild(o);
   });
   const q=new URLSearchParams(location.search).get("run");
@@ -208,16 +404,18 @@ async function loadRun(id){
   S.lastSeq=S.all.length?S.all[S.all.length-1].seq:0;
   $("stream").innerHTML=""; renderNarrative();
   if(S.all.length){ S.shown=S.all.length; redraw(); }
-  else $("stream").innerHTML='<div id="empty">This run has no event stream.</div>';
+  else $("stream").innerHTML=`<div id="empty">${T().emptyNoEvents}</div>`;
 }
 
 /* ---------------- replay / live ---------------- */
 function stop(){ if(S.timer)clearInterval(S.timer); S.timer=null; S.playing=false; S.live=false;
-  $("play").classList.remove("on"); $("play").textContent="▶ Replay"; $("live").classList.remove("on"); }
+  $("play").classList.remove("on"); $("play").textContent="▶"; $("play").title=T().replayBtn+" — "+T().playTitle;
+  $("live").classList.remove("on"); }
 
 function play(){
   if(S.playing){ stop(); return; }
-  stop(); S.playing=true; $("play").classList.add("on"); $("play").textContent="❚❚ Pause";
+  stop(); S.playing=true; $("play").classList.add("on"); $("play").textContent="❚❚";
+  $("play").title=T().pauseBtn+" — "+T().playTitle;
   S.shown=0; $("stream").innerHTML=""; renderNarrative();
   const ms=+$("speed").value;
   if(ms===0){ S.shown=S.all.length; redraw(); stop(); return; }
@@ -242,11 +440,7 @@ function live(){
 /* ---------------- render ---------------- */
 function renderNarrative(){
   const d=document.createElement("div"); d.className="narr";
-  d.innerHTML=`<b>What you are watching.</b> An LLM-driven agent runs the full research loop on a frozen
-  benchmark: it states the bottleneck it sees, proposes an experiment, edits real model code or
-  configuration, has that change validated before any training, trains, evaluates, compares against a
-  control with a paired bootstrap, and decides what to do next — then stops when the organizer's own
-  convergence rule says to. Every line below is an artifact the agent emitted; none of it is narration.`;
+  d.innerHTML=T().narrative;
   $("stream").appendChild(d);
 }
 
@@ -280,16 +474,16 @@ function metricChips(e){
 }
 
 function cardHTML(e,i){
-  const d=e.data||{};
+  const d=e.data||{}, t=T();
   let body="";
-  if(e.type==="OBSERVE")      body=`<span class="lbl">OBSERVATION</span>${esc(e.summary)}`;
+  if(e.type==="OBSERVE")      body=`<span class="lbl">${t.lblObservation}</span>${esc(e.summary)}`;
   else if(e.type==="HYPOTHESIZE"){
-    body=`<span class="lbl">HYPOTHESIS</span>${esc(e.summary)}`;
-    if(d.rationale) body+=`<span class="lbl">RATIONALE</span>${esc(d.rationale)}`;
+    body=`<span class="lbl">${t.lblHypothesis}</span>${esc(e.summary)}`;
+    if(d.rationale) body+=`<span class="lbl">${t.lblRationale}</span>${esc(d.rationale)}`;
   }
-  else if(e.type==="COMPARE")  body=`<span class="lbl">EVIDENCE</span>${esc(e.summary)}`;
-  else if(e.type==="DECIDE")   body=`<span class="lbl">DECISION</span>${esc(e.summary)}`;
-  else if(e.type==="GUARD")    body=`<span class="lbl">${d.ok===false?"BLOCKED":"GUARD"}</span>${esc(e.summary)}`;
+  else if(e.type==="COMPARE")  body=`<span class="lbl">${t.lblEvidence}</span>${esc(e.summary)}`;
+  else if(e.type==="DECIDE")   body=`<span class="lbl">${t.lblDecision}</span>${esc(e.summary)}`;
+  else if(e.type==="GUARD")    body=`<span class="lbl">${d.ok===false?t.lblBlocked:t.lblGuard}</span>${esc(e.summary)}`;
   else                          body=esc(e.summary);
   const det=Object.keys(d).length?JSON.stringify(d,null,1):"";
   return `<div class="card ${CARDCLASS(e)}">
@@ -328,41 +522,43 @@ function last(type,pred){ const a=evs().filter(e=>e.type===type&&(!pred||pred(e)
 
 /* ---------------- status bar ---------------- */
 function updateBar(){
+  const t=T();
   const snap=[...evs()].reverse().find(e=>e.data&&e.data.experiments_executed!=null);
   const start=evs().find(e=>e.type==="RUN_START");
   const d=snap?snap.data:{};
-  if(start&&start.data){ $("brandsub").textContent=start.data.run_id||"KuaiRand-Pure"; }
+  if(start&&start.data){ $("brandsub").textContent=start.data.run_id||t.brandSub; }
   $("s_exp").textContent = d.experiments_executed!=null?d.experiments_executed:"—";
-  $("s_exps").textContent = `of ${d.max_iter||50} hard cap`;
+  $("s_exps").textContent = t.statExpSub(d.max_iter||50);
   $("s_prop").textContent = d.proposal_attempts!=null?d.proposal_attempts:"—";
-  $("s_props").textContent = d.proposals_rejected!=null?`${d.proposals_rejected} rejected pre-training`:"attempts";
+  $("s_props").textContent = d.proposals_rejected!=null?t.statPropRejected(d.proposals_rejected):t.statPropAttempts;
   $("s_wall").textContent = d.wall_clock_s!=null?(d.wall_clock_s/60).toFixed(1)+"m":"—";
   const tok=S.report&&S.report.resource_totals;
   $("s_tok").textContent = tok?((tok.input_tokens+tok.output_tokens)/1000).toFixed(1)+"k":"—";
   $("s_best").textContent = d.best_primary!=null?F(d.best_primary,5):"—";
-  if(d.best_primary!=null) $("s_bests").textContent=`Δ ${(d.best_primary-0.6015>=0?"+":"")+F(d.best_primary-0.6015,4)} vs FM`;
+  if(d.best_primary!=null) $("s_bests").textContent=t.statBestDelta((d.best_primary-0.6015>=0?"+":"")+F(d.best_primary-0.6015,4));
   const fin=last("FINALIZE");
   if(fin&&fin.data&&fin.data.honest&&fin.data.honest.estimate!=null){
     $("s_port").textContent=F(fin.data.honest.estimate,5);
-    $("s_ports").textContent=fin.data.honest.se?("± "+F(fin.data.honest.se,5)+" K-fold CV"):fin.data.honest.kind;
+    $("s_ports").textContent=fin.data.honest.se?t.statPortSe(F(fin.data.honest.se,5)):fin.data.honest.kind;
   }else if(S.report&&S.report.final_valid_honest){
     $("s_port").textContent=F(S.report.final_valid_honest.estimate,5);
   }
   const conv=d.official_converged;
   const box=$("s_convbox");
-  $("s_conv").textContent = conv===true?"REACHED":(conv===false?"open":"—");
+  $("s_conv").textContent = conv===true?t.statConvReached:(conv===false?t.statConvOpen:"—");
   box.classList.toggle("pending",conv!==true);
   const stopE=[...evs()].reverse().find(e=>e.data&&e.data.stop_reason);
-  $("s_convs").textContent = stopE? `stop: ${stopE.data.stop_reason}` : `eps=${d.official_eps??0.002}, N=${d.official_N??3}`;
+  $("s_convs").textContent = stopE? t.statConvStop(stopE.data.stop_reason) : t.statConvSub(d.official_eps??0.002,d.official_N??3);
   const rs=d.research_stall!=null?d.research_stall:d.research_stall_at_stop;
   const pg=d.proposal_guard!=null?d.proposal_guard:d.proposal_guard_at_stop;
-  $("s_int").textContent = rs!=null?`stall ${rs} · guard ${pg}`:"—";
+  $("s_int").textContent = rs!=null?t.statIntStall(rs,pg):"—";
 }
 
 /* ---------------- research state ---------------- */
 const COLOR={confirmed:"var(--ok)",promising:"var(--cy)",inconclusive:"var(--warn)",
              rejected:"var(--bad)",no_effect:"var(--dim)"};
 function updateState(){
+  const t=T();
   const byNode={};
   evs().forEach(e=>{
     if(e.type==="COMPARE"&&e.data&&e.data.evidence_class) byNode[e.node_id]={...e.data,cls:e.data.evidence_class};
@@ -371,8 +567,8 @@ function updateState(){
   const hyp={}; evs().forEach(e=>{ if(e.type==="HYPOTHESIZE") hyp[e.node_id]={t:e.summary,lever:(e.data||{}).lever}; });
   const buckets={confirmed:[],promising:[],inconclusive:[],rejected:[],no_effect:[]};
   Object.entries(byNode).forEach(([n,v])=>{ (buckets[v.cls]||buckets.inconclusive).push([n,v]); });
-  const cap={confirmed:"Confirmed  P(Δ>0) ≥ 0.90",promising:"Promising",inconclusive:"Inconclusive — below what this validation set can resolve",
-             rejected:"Rejected  P(Δ<0) ≥ 0.90",no_effect:"No effect — the intervention never reached execution"};
+  const cap={confirmed:t.capConfirmed,promising:t.capPromising,inconclusive:t.capInconclusive,
+             rejected:t.capRejected,no_effect:t.capNoEffect};
   let h="";
   for(const k of ["confirmed","promising","inconclusive","rejected","no_effect"]){
     if(!buckets[k].length) continue;
@@ -387,27 +583,28 @@ function updateState(){
   const cap2=evs().filter(e=>e.type==="GUARD"&&e.data&&e.data.guard==="honest_rejection");
   if(cap2.length){
     h+=`<div class="bucket"><div class="btitle"><span class="dot" style="background:var(--mag)"></span>
-        <span style="color:var(--mag)">Unsupported capability — declined honestly, no code fabricated</span></div>`;
+        <span style="color:var(--mag)">${t.capabilityDeclined}</span></div>`;
     cap2.forEach(e=>h+=`<div class="it">${esc(e.summary).slice(0,150)}</div>`);
     h+="</div>";
   }
   const plat=evs().filter(e=>e.type==="OBSERVE"&&/plateau/i.test(e.summary));
   if(plat.length){
     h+=`<div class="bucket"><div class="btitle"><span class="dot" style="background:var(--warn)"></span>
-        <span style="color:var(--warn)">Plateau → strategy change (does not postpone convergence)</span></div>
+        <span style="color:var(--warn)">${t.plateauNote}</span></div>
         <div class="it">${esc(plat[plat.length-1].summary).slice(0,240)}</div></div>`;
   }
-  $("state").innerHTML=h||'<div class="it" style="border:0">No evidence recorded yet.</div>';
+  $("state").innerHTML=h||`<div class="it" style="border:0">${t.noEvidence}</div>`;
 }
 
 /* ---------------- portfolio ---------------- */
 function updatePort(){
+  const t=T();
   const val=[...evs()].reverse().find(e=>e.type==="ENSEMBLE"&&e.data&&e.data.valuation);
   const sel=[...evs()].reverse().find(e=>e.type==="ENSEMBLE"&&e.data&&e.data.members&&e.data.weights);
   let h="";
   if(val){
     const rows=Object.entries(val.data.valuation).sort((a,b)=>(b[1].emc||0)-(a[1].emc||0));
-    h+=`<table><thead><tr><th>node</th><th>standalone</th><th>rank corr</th><th>pair-blend</th><th>EMC</th></tr></thead><tbody>`;
+    h+=`<table><thead><tr><th>${t.thNode}</th><th>${t.thStandalone}</th><th>rank corr</th><th>pair-blend</th><th>EMC</th></tr></thead><tbody>`;
     rows.forEach(([n,v])=>{
       h+=`<tr><td>${esc(n)}</td><td>${F(v.standalone_primary)}</td><td>${Number(v.rank_corr_to_best).toFixed(3)}</td>
           <td class="${v.pair_blend_gain>0?"grow":""}">${(v.pair_blend_gain>=0?"+":"")+F(v.pair_blend_gain)}</td>
@@ -416,21 +613,21 @@ function updatePort(){
     h+="</tbody></table>";
     const top=rows[0], worst=rows.slice().sort((a,b)=>(a[1].standalone_primary)-(b[1].standalone_primary))[0];
     if(top&&worst&&top[0]===worst[0])
-      h+=`<div class="it" style="border:0;margin-top:7px;color:var(--cy)">The <b>weakest standalone</b> model
-          (${esc(worst[0])}) has the <b>largest</b> ensemble contribution — standalone score alone would have discarded it.</div>`;
+      h+=`<div class="it" style="border:0;margin-top:7px;color:var(--cy)">${t.weakestNote(esc(worst[0]))}</div>`;
   }
   if(sel){
     const d=sel.data;
-    h+=`<div class="it" style="border:0;margin-top:8px"><b>Selected portfolio</b> ${esc((d.members||[]).join(" + "))}
-        <br><span class="st">families ${esc((d.member_families||[]).join("+"))} · weights ${JSON.stringify(d.weights)}</span>
-        <br><span class="st">tuned-on-all-valid ${F(d.valid_primary_tuned)} (optimistic) · honest ${d.K}-fold CV
-        <b class="grow">${F(d.cv_mean)}</b> ± ${F(d.cv_se)} · gain over best single ${(d.cv_gain_over_best_single>=0?"+":"")+F(d.cv_gain_over_best_single)}</span></div>`;
+    h+=`<div class="it" style="border:0;margin-top:8px"><b>${t.selectedPortfolio}</b> ${esc((d.members||[]).join(" + "))}
+        <br><span class="st">${t.families} ${esc((d.member_families||[]).join("+"))} · ${t.weights} ${JSON.stringify(d.weights)}</span>
+        <br><span class="st">${t.tunedAllValid} ${F(d.valid_primary_tuned)} ${t.optimistic} · ${t.honest} ${d.K}-fold CV
+        <b class="grow">${F(d.cv_mean)}</b> ± ${F(d.cv_se)} · ${t.gainOverBest} ${(d.cv_gain_over_best_single>=0?"+":"")+F(d.cv_gain_over_best_single)}</span></div>`;
   }
-  $("port").innerHTML=h||'<div class="it" style="border:0">Portfolio statistics appear once ≥2 models exist.</div>';
+  $("port").innerHTML=h||`<div class="it" style="border:0">${t.portfolioPlaceholder}</div>`;
 }
 
 /* ---------------- experiments + integrity ---------------- */
 function updateTree(){
+  const t=T();
   const nodes={};
   evs().forEach(e=>{
     if(!e.node_id)return;
@@ -445,7 +642,7 @@ function updateTree(){
   const rec={}; S.log.forEach(r=>rec[r.node_id]=r);
   const list=Object.values(nodes).filter(n=>n.p!=null);
   const best=list.length?Math.max(...list.map(n=>n.p)):null;
-  let h=`<table><thead><tr><th>node</th><th>lever</th><th>family</th><th>primary</th><th>GAUC</th><th>nDCG@5</th><th>evidence</th></tr></thead><tbody>`;
+  let h=`<table><thead><tr><th>${t.thNode}</th><th>${t.thLever}</th><th>${t.thFamily}</th><th>${t.thPrimary}</th><th>GAUC</th><th>nDCG@5</th><th>${t.thEvidence}</th></tr></thead><tbody>`;
   Object.values(nodes).forEach(n=>{
     const r=rec[n.id]||{};
     const fam=n.fam||(r.config&&r.config.model_type)||"—";
@@ -461,20 +658,79 @@ function updateTree(){
     const k=(e.data||{}).guard||"guard"; g[k]=g[k]||{n:0,bad:0,last:""};
     g[k].n++; if((e.data||{}).ok===false)g[k].bad++; g[k].last=e.summary;
   });
-  const NAMES={frozen_boundary:"Frozen-boundary hash verification",holdout_isolation:"Hidden-test / label-proxy isolation",
-    effective_config:"Effective-config validation (no silent no-ops)",dedup:"Content-based deduplication",
-    check_imports:"Import allowlist + holdout access guard",provenance:"Intended vs executed intervention",
-    leak_tripwire:"Leakage tripwire",honest_rejection:"Honest capability rejection",
-    submission_check:"Frozen submit.py --check",champion_revalidation:"Champion re-validation",
-    noop_detection:"Post-hoc no-op detection"};
-  h+=`<div class="btitle" style="margin:12px 0 5px"><span class="dot" style="background:var(--ok)"></span>Integrity — real guard events only</div>`;
+  h+=`<div class="btitle" style="margin:12px 0 5px"><span class="dot" style="background:var(--ok)"></span>${t.integrityHeading}</div>`;
   Object.entries(g).forEach(([k,v])=>{
     const blocked=v.bad>0;
     h+=`<div class="integ"><span class="s" style="color:${blocked?"var(--warn)":"var(--ok)"}">${blocked?"⛒":"✓"}</span>
-        <span class="n">${esc(NAMES[k]||k)}</span><span class="c">${v.n}×${blocked?` · ${v.bad} blocked`:""}</span></div>`;
+        <span class="n">${esc(t.NAMES[k]||k)}</span><span class="c">${v.n}×${blocked?` · ${v.bad} blocked`:""}</span></div>`;
   });
-  if(!Object.keys(g).length) h+=`<div class="it" style="border:0">No guard events yet.</div>`;
+  if(!Object.keys(g).length) h+=`<div class="it" style="border:0">${t.noGuardEvents}</div>`;
   $("tree").innerHTML=h;
+}
+
+/* ---------------- language toggle + info popover ---------------- */
+$("langToggle").onclick=()=>{
+  LANG = (LANG==="zh"?"en":"zh");
+  try{ localStorage.setItem("rcLang",LANG); }catch(e){}
+  applyI18n();
+};
+document.querySelectorAll(".info-btn").forEach(btn=>{
+  btn.addEventListener("click", e=>{
+    e.stopPropagation();
+    const pop=$("infoHyp"); const open=pop.classList.contains("open");
+    document.querySelectorAll(".info-pop").forEach(p=>p.classList.remove("open"));
+    if(!open) pop.classList.add("open");
+  });
+});
+document.addEventListener("click", ()=>document.querySelectorAll(".info-pop").forEach(p=>p.classList.remove("open")));
+
+/* ---------------- guided tour ---------------- */
+const tourCard=$("tourCard"), tourScrim=$("tourScrim");
+const TOUR_STEPS=[
+  {target:"#langToggle", titleKey:"tourIntroTitle", bodyKey:"tourIntroBody"},
+  {target:"#bar", titleKey:"tourMetricsTitle", bodyKey:"tourMetricsBody"},
+  {target:"#stream", titleKey:"tourLogsTitle", bodyKey:"tourLogsBody"},
+  {target:"#state", titleKey:"tourHypTitle", bodyKey:"tourHypBody"}
+];
+let stepIdx=0;
+function clearHighlight(){ document.querySelectorAll(".tour-target").forEach(el=>el.classList.remove("tour-target")); }
+function positionCard(target){
+  const r=target.getBoundingClientRect();
+  const cw=tourCard.offsetWidth, ch=tourCard.offsetHeight;
+  let top=r.bottom+14;
+  if(top+ch>window.innerHeight-12) top=Math.max(12,r.top-ch-14);
+  if(target.id==="bar") top=76; // status bar spans full width; anchor just below it
+  const left=Math.min(Math.max(12,r.left),window.innerWidth-cw-12);
+  tourCard.style.top=top+"px"; tourCard.style.left=left+"px";
+}
+function endTour(){ clearHighlight(); tourCard.hidden=true; tourScrim.hidden=true; }
+function showStep(){
+  const t=T();
+  const step=TOUR_STEPS[stepIdx];
+  if(!step){ endTour(); return; }
+  const target=document.querySelector(step.target);
+  if(!target){ stepIdx++; showStep(); return; }
+  clearHighlight(); target.classList.add("tour-target");
+  tourScrim.hidden=false; tourCard.hidden=false;
+  tourCard.querySelector(".tour-title").textContent=t[step.titleKey];
+  tourCard.querySelector(".tour-body").textContent=t[step.bodyKey];
+  tourCard.querySelector(".tour-step").textContent=(stepIdx+1)+" / "+TOUR_STEPS.length;
+  const isLast=(stepIdx===TOUR_STEPS.length-1);
+  $("tourNext").textContent = isLast ? t.tourDone : t.tourNext;
+  setTimeout(()=>positionCard(target),50);
+}
+$("tourNext").onclick=()=>{ stepIdx++; if(stepIdx>=TOUR_STEPS.length) endTour(); else showStep(); };
+$("tourSkip").onclick=endTour;
+$("tourClose").onclick=endTour;
+tourScrim.onclick=endTour;
+window.addEventListener("resize",()=>{ if(!tourCard.hidden){ const step=TOUR_STEPS[stepIdx]; const el=step&&document.querySelector(step.target); if(el) positionCard(el); } });
+function startTour(){ stepIdx=0; showStep(); }
+$("tourReplay").onclick=startTour;
+function maybeStartTour(){
+  if(!localStorage.getItem("rcTourSeen")){
+    try{ localStorage.setItem("rcTourSeen","1"); }catch(e){}
+    setTimeout(startTour,500);
+  }
 }
 
 /* ---------------- boot ---------------- */
@@ -482,7 +738,9 @@ $("runsel").onchange=e=>loadRun(e.target.value);
 $("play").onclick=play;
 $("live").onclick=live;
 $("speed").onchange=()=>{ if(S.playing){ stop(); play(); } };
+applyI18n();
 loadRuns();
+maybeStartTour();
 </script>
 </body>
 </html>

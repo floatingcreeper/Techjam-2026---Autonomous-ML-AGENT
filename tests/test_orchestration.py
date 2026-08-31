@@ -85,7 +85,7 @@ def test_official_convergence_semantics():
 
 # ------------------------------------------------------------------ content dedup
 def test_content_dedup_is_path_independent():
-    print("\n[2] deduplication is CONTENT-based, not path-based (docs/SYSTEM.md §12)")
+    print("\n[2] deduplication is CONTENT-based, not path-based (docs/EN/SYSTEM.md §12)")
     SCRATCH.mkdir(parents=True, exist_ok=True)
     b1, b2 = SCRATCH / "b1", SCRATCH / "b2"
     for b in (b1, b2):
@@ -141,7 +141,7 @@ def test_noop_classification():
 
 # ------------------------------------------------------------------ evidence vs adoption
 def test_evidence_is_not_adoption_status():
-    print("\n[4] scientific evidence is independent of tree adoption status (docs/SYSTEM.md §14)")
+    print("\n[4] scientific evidence is independent of tree adoption status (docs/EN/SYSTEM.md §14)")
     mem = Memory(str(SCRATCH / "mem"))
     # A node that is the CHAMPION but was never labelled "improved" -- the exact reference-run case.
     mem.records = [
@@ -185,7 +185,7 @@ def test_evidence_is_not_adoption_status():
 
 # ------------------------------------------------------------------ provenance
 def test_provenance_records_executed_not_intended():
-    print("\n[5] provenance distinguishes intended from executed intervention (docs/SYSTEM.md §11)")
+    print("\n[5] provenance distinguishes intended from executed intervention (docs/EN/SYSTEM.md §11)")
     SCRATCH.mkdir(parents=True, exist_ok=True)
     blocks = SCRATCH / "pb"
     blocks.mkdir(parents=True, exist_ok=True)
@@ -223,7 +223,7 @@ def test_provenance_records_executed_not_intended():
 
 
 def test_accounting_separates_proposals_from_experiments():
-    print("\n[6] proposal attempts and executed experiments are separate counters (docs/SYSTEM.md §16)")
+    print("\n[6] proposal attempts and executed experiments are separate counters (docs/EN/SYSTEM.md §16)")
     from agent.config import Config
     st = orch.RunState(Config(), 50)
     st.proposal_attempts += 3

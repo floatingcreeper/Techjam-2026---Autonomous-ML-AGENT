@@ -1,6 +1,6 @@
 """Append-only run-log = agent memory = deliverable.
 
-`research_table()` synthesises the scientific state handed to the Proposer. docs/SYSTEM.md §14 records what the old rule-based version did: it bucketed a record as `confirmed` iff
+`research_table()` synthesises the scientific state handed to the Proposer. docs/EN/SYSTEM.md §14 records what the old rule-based version did: it bucketed a record as `confirmed` iff
 `status == "improved"` and as **rejected otherwise**, so in `run_20260831_000142` -- a run with zero
 `improved` nodes -- the Proposer was told from iteration 4 onward:
 
@@ -86,7 +86,7 @@ class Memory:
         best_rec, best_pv = None, -1.0
 
         for r in self.records:
-            # capability rejections are research information, not failures (docs/SYSTEM.md §14)
+            # capability rejections are research information, not failures (docs/EN/SYSTEM.md §14)
             for e in r.get("events") or []:
                 if e.get("class") == "not_implementable":
                     unsupported.append(f"{r.get('lever', '?')}: {str(e.get('detail', ''))[:100]}")

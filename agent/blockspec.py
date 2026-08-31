@@ -1,4 +1,4 @@
-"""The honoured-config contract -- docs/RESEARCH.md §7 (BPR) / docs/SYSTEM.md §11.
+"""The honoured-config contract -- docs/EN/RESEARCH.md §7 (BPR) / docs/EN/SYSTEM.md §11.
 
 The defect this closes
 ----------------------
@@ -20,7 +20,7 @@ What this module provides
    not-honoured / invalid, with a machine-checkable reason string the Proposer can act on.
 
 A mutation whose effective set is empty is a STRUCTURAL no-op: it provably cannot change execution, so
-it is never trained and never enters the scientific record (docs/SYSTEM.md §12).
+it is never trained and never enters the scientific record (docs/EN/SYSTEM.md §12).
 """
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ CFG_FIELDS = {f.name for f in fields(Cfg)}
 
 # `model_type` is a family LABEL that must follow the mounted blocks (agent/mutate.py sets it from
 # `adopt_blockset`). Letting a hypothesis set it by hand desynchronises the label from the code, which
-# is the bug that collapsed every node into one ensemble family (docs/SYSTEM.md §6 (model_type must follow the blocks)).
+# is the bug that collapsed every node into one ensemble family (docs/EN/SYSTEM.md §6 (model_type must follow the blocks)).
 MANAGED_FIELDS = {"model_type"}
 
 
@@ -50,7 +50,7 @@ class BlockSetSpec:
 _FM_HONOURED = frozenset({
     # baseline_blocks/model.py -> pipeline.lib.fm.FMModel
     "seed", "k", "lr", "l2",
-    # baseline_blocks/loss.py -> pipeline.lib.losses.make_loss   (routed as of the Lever-A fix, docs/RESEARCH.md §7)
+    # baseline_blocks/loss.py -> pipeline.lib.losses.make_loss   (routed as of the Lever-A fix, docs/EN/RESEARCH.md §7)
     "loss_type", "tau", "group_filter",
     # baseline_blocks/train.py -> pipeline.lib.train_np.fit
     "epochs", "batch", "patience", "grad_clip", "neg_ratio", "ips",
@@ -91,7 +91,7 @@ SPECS: dict[str, BlockSetSpec] = {
                          "LightGBM LambdaRank; tune via the gbm_* extension knobs"),
 }
 
-# Block sets whose training is nondeterministic at a fixed seed. Measured (docs/RESEARCH.md §4):
+# Block sets whose training is nondeterministic at a fixed seed. Measured (docs/EN/RESEARCH.md §4):
 # fm and lgbm have std 0.00000 over 24 and 14 nodes; din has sigma ~ 0.00025 with range 0.0011.
 # This is what decides whether multi-seed RE-TRAINING is worth a training pass (agent/reeval.py) as
 # opposed to a free paired bootstrap (agent/stats.py).
@@ -187,7 +187,7 @@ class Validation:
         return not self.invalid and not self.not_honoured
 
     def feedback(self, blockset: str) -> str:
-        """A short, specific, machine-derived message for the Proposer (docs/SYSTEM.md §12)."""
+        """A short, specific, machine-derived message for the Proposer (docs/EN/SYSTEM.md §12)."""
         spec = SPECS.get(blockset)
         lines = list(self.reasons)
         if not self.has_effect:

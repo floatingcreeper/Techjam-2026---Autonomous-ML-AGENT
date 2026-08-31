@@ -1,4 +1,4 @@
-"""Holdout/leakage integrity -- docs/RESEARCH.md §9 / docs/SYSTEM.md §8 (integrity).
+"""Holdout/leakage integrity -- docs/EN/RESEARCH.md §9 / docs/EN/SYSTEM.md §8 (integrity).
 
 The defect: v6 wrote `runs/_cache/test_y.npy` and `runs/_cache/aux/{valid,test}_aux.npy`. Every block
 receives `bundle.cache_dir` and numpy is allowlisted, so the hidden-test labels and the near-oracle

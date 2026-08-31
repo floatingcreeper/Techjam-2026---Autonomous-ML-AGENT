@@ -2,14 +2,14 @@
 Used by `python -m agent.run --mock` / `--faults`.
 
 Deliberately includes moves that must be REJECTED BEFORE TRAINING, so `--mock` exercises the
-docs/RESEARCH.md §7 (BPR) / docs/SYSTEM.md §11/docs/SYSTEM.md §12/docs/SYSTEM.md §12 machinery rather than only the happy path:
+docs/EN/RESEARCH.md §7 (BPR) / docs/EN/SYSTEM.md §11/docs/EN/SYSTEM.md §12/docs/EN/SYSTEM.md §12 machinery rather than only the happy path:
   * an unhonoured/invalid config knob  -> effective-config validation
   * a repeat of an earlier experiment  -> content-based deduplication
 
 The MockDriver advances one move per Proposer call, so a rejected proposal naturally consumes the
 next move as its re-proposal -- which is exactly the loop the real agent runs.
 
-Note the Lever-A move is now a PURE CONFIG mutation. Before the docs/SYSTEM.md §11 fix that was a silent no-op
+Note the Lever-A move is now a PURE CONFIG mutation. Before the docs/EN/SYSTEM.md §11 fix that was a silent no-op
 (baseline_blocks/loss.py hardcoded BCE and ignored cfg.loss_type, so it trained the baseline and
 scored 0.60147, identical to root). It now genuinely trains BPR and scores ~0.6036.
 """
@@ -79,7 +79,7 @@ def build_moves():
                           mutation_kind="config",
                           config_delta_json='{"num_leaves":127,"aux_tasks":["click"]}',
                           expected_metric="both", expected_gain=0.002)},
-        # 2. The Lever-A win, as a pure config mutation (the docs/SYSTEM.md §11 fix in action).
+        # 2. The Lever-A win, as a pure config mutation (the docs/EN/SYSTEM.md §11 fix in action).
         _BPR_WIN,
         # 3. Listwise alternative -- a real, informative NEGATIVE result (~0.5997).
         {"hypothesis": _H(lever="A", statement="Test listwise softmax-CE (an nDCG surrogate) instead of BPR",
@@ -104,7 +104,7 @@ def build_moves():
                           config_delta_json='{"k":16,"batch":2048,"loss_type":"bpr",'
                                             '"neg_ratio":2,"epochs":4,"patience":2}',
                           expected_metric="both", expected_gain=0.005)},
-        # 6. REJECTED before training: byte-identical to move 5 -- content-based dedup (docs/SYSTEM.md §12).
+        # 6. REJECTED before training: byte-identical to move 5 -- content-based dedup (docs/EN/SYSTEM.md §12).
         {"hypothesis": _H(lever="B",
                           statement="Adopt DeepFM+DIN with target attention over user history",
                           rationale="re-proposing the same architecture",

@@ -4,10 +4,10 @@ A node is a snapshot of the six block sources + a `Cfg` + an optional `cfg_ext.j
 `materialize_child` copies the parent's blocks (or an adopted block set), applies the **validated**
 config delta, and returns a `Provenance` record proving what will actually execute.
 
-Two docs/RESEARCH.md defects are closed here:
-  docs/SYSTEM.md §11  a delta is now filtered through `blockspec.validate_delta`, so knobs the mounted block set
+Two docs/EN/RESEARCH.md defects are closed here:
+  docs/EN/SYSTEM.md §11  a delta is now filtered through `blockspec.validate_delta`, so knobs the mounted block set
         cannot read never reach `cfg.json` and never masquerade as an experiment.
-  docs/SYSTEM.md §12  node identity is the hash of the node's CONTENT (cfg + ext + six block sources), not of the
+  docs/EN/SYSTEM.md §12  node identity is the hash of the node's CONTENT (cfg + ext + six block sources), not of the
         unified diff against its parent, so a duplicate is detected however it was reached.
 """
 from __future__ import annotations
@@ -77,7 +77,7 @@ def validate_hypothesis(parent, hypothesis, parent_ext=None) -> tuple:
 
     Returns (validation, blockset, intended_delta). A hypothesis whose `validation.has_effect` is
     False and which carries no block edit is a STRUCTURAL no-op: it provably cannot change execution,
-    so the orchestrator re-proposes instead of training it (docs/SYSTEM.md §12).
+    so the orchestrator re-proposes instead of training it (docs/EN/SYSTEM.md §12).
     """
     raw = hypothesis.config_delta_json or "{}"
     try:
@@ -110,7 +110,7 @@ def materialize_child(run_dir, node_id, parent, hypothesis, block_edit,
     cfg = _apply_validated(parent.cfg, _val.effective)
     if adopt:
         # The family label must follow the mounted blocks, else `assemble` groups every node into one
-        # family and no ensemble forms (docs/SYSTEM.md §6 (model_type must follow the blocks)).
+        # family and no ensemble forms (docs/EN/SYSTEM.md §6 (model_type must follow the blocks)).
         cfg = cfg.replace(model_type=adopt)
     cfg.to_json(node_dir / "cfg.json")
 
@@ -140,5 +140,5 @@ def materialize_child(run_dir, node_id, parent, hypothesis, block_edit,
 
 
 def signature(cfg: Cfg, blocks_dir: str, ext: dict | None = None) -> str:
-    """Content-based node identity (docs/SYSTEM.md §12). Path-independent, unlike the old cfg+diff signature."""
+    """Content-based node identity (docs/EN/SYSTEM.md §12). Path-independent, unlike the old cfg+diff signature."""
     return provenance.content_signature(cfg, blocks_dir, ext)

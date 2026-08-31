@@ -27,7 +27,7 @@ class Failure:
         return f"Failure({self.kind}: {self.detail[:80]!r})"
 
 
-# docs/SYSTEM.md §8 -- holdout access guard.
+# docs/EN/SYSTEM.md §8 -- holdout access guard.
 # The data interface already withholds hidden-test labels and the near-oracle `is_click` proxy
 # (agent/datced.py v7 keeps them under runs/_holdout/). This is the second layer: an agent-written
 # block must not reach around the interface to the holdout directory or the raw logs. Matching is on

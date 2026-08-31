@@ -1,6 +1,6 @@
 """Search tree + best-first selection.
 
-A `Node` now carries THREE independent statuses, because docs/SYSTEM.md §14 (research memory) measured what happens
+A `Node` now carries THREE independent statuses, because docs/EN/SYSTEM.md §14 (research memory) measured what happens
 when they are collapsed into one:
 
   status      -- tree/adoption bookkeeping (root | improved | no_gain | abandoned | duplicate).
@@ -46,7 +46,7 @@ class Node:
     provenance: dict = field(default_factory=dict)    # intended vs. executed intervention
     ext: dict = field(default_factory=dict)           # cfg_ext sidecar
     noop_class: str | None = None
-    informative: bool = False         # did this experiment yield research information? (docs/SYSTEM.md §16)
+    informative: bool = False         # did this experiment yield research information? (docs/EN/SYSTEM.md §16)
 
     def score(self) -> float:
         if self.metrics and self.metrics.get("primary_valid") is not None:
@@ -84,7 +84,7 @@ class SearchTree:
     def select(self, explore_p: float, rng, prefer_diverse: bool = False) -> Node:
         """Best-first with an epsilon exploration valve.
 
-        `prefer_diverse` is the plateau-escalation hook (docs/SYSTEM.md §16): when the search has stopped producing
+        `prefer_diverse` is the plateau-escalation hook (docs/EN/SYSTEM.md §16): when the search has stopped producing
         information, expanding the most DECORRELATED viable node is more useful than expanding the
         best one again. It changes which parent is chosen; it never changes when the run stops.
         """

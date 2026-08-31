@@ -18,7 +18,7 @@ SPLITS = ("train", "valid", "test")
 CACHE_VERSION = 10          # bump when the cached array layout changes (forces a rebuild)
 SEQ_L = 30                 # max user-history length for Lever B (DIN)
 
-# docs/SYSTEM.md §8 -- label-derived data that must NOT sit inside the block-visible cache.
+# docs/EN/SYSTEM.md §8 -- label-derived data that must NOT sit inside the block-visible cache.
 # History: v6 wrote runs/_cache/test_y.npy and runs/_cache/aux/{valid,test}_aux.npy. Every block
 # receives `bundle.cache_dir` and numpy is on the executor allowlist, so `is_click` for test rows was
 # reachable in one line -- and scoring by is_click alone reaches primary 0.7466 on valid (58.8% of the
@@ -29,7 +29,7 @@ HOLDOUT_DIRNAME = "_holdout"
 
 
 def holdout_dir(cache_dir: str) -> str:
-    """Sibling of the cache, never passed to a block. See docs/SYSTEM.md §8."""
+    """Sibling of the cache, never passed to a block. See docs/EN/SYSTEM.md §8."""
     return str(Path(cache_dir).parent / HOLDOUT_DIRNAME)
 
 
@@ -69,7 +69,7 @@ def build_or_load(data_dir: str, cache_dir: str, force: bool = False) -> dict:
         np.save(cache / f"{name}_X.npy", np.asarray(X, dtype=np.int32))
         np.save(cache / f"{name}_u.npy", u)
         np.save(cache / f"{name}_vid.npy", vid)
-        # docs/SYSTEM.md §8: hidden-test labels go to the holdout dir, never into the block-visible cache.
+        # docs/EN/SYSTEM.md §8: hidden-test labels go to the holdout dir, never into the block-visible cache.
         ydst = (hold if name == "test" else cache) / f"{name}_y.npy"
         np.save(ydst, np.asarray(y, dtype=np.float32))
         sizes[name] = int(len(y))
@@ -85,7 +85,7 @@ def build_or_load(data_dir: str, cache_dir: str, force: bool = False) -> dict:
     from pipeline.lib import seq_build
     seq_build.build(data_dir, str(cache), L=SEQ_L, force=True, splits=splits)
     # Lever C auxiliary labels (re-reads raw logs for the aux columns data.load() drops).
-    # docs/SYSTEM.md §8: only the TRAIN slice lands in the cache -- fit_din reads aux["train"] and nothing else.
+    # docs/EN/SYSTEM.md §8: only the TRAIN slice lands in the cache -- fit_din reads aux["train"] and nothing else.
     # valid/test aux (is_click correlates 0.75 with long_view) go to the holdout dir.
     from pipeline.lib import aux_build
     aux_build.build(data_dir, str(cache), str(hold), force=True)
@@ -107,7 +107,7 @@ def _assert_aux_aligned(cache_dir: str) -> None:
 
     Since v7 only the TRAIN aux slice exists in the cache, so this also asserts that the valid/test
     aux arrays -- the `is_click` proxy for the labels being scored -- are absent from the
-    block-visible interface (docs/SYSTEM.md §8)."""
+    block-visible interface (docs/EN/SYSTEM.md §8)."""
     cache = Path(cache_dir)
     base_vid = np.load(cache / "train_vid.npy")
     aux_vid = np.load(cache / "aux" / "train_vid.npy")

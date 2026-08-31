@@ -1,5 +1,7 @@
 # Autonomous ML Research Agent — KuaiRand-Pure
 
+（中文版：[README.CN.md](README.CN.md)）
+
 An LLM-driven agent that runs the **entire ML research loop** on a frozen recommender benchmark:
 it reproduces the official baseline, states the bottleneck it sees, proposes an experiment, edits real
 model code or configuration, has that change validated before any training, trains, evaluates, compares
@@ -60,7 +62,8 @@ in-sample and separately measured the size of that optimism (≈+0.0007).
 * **It disbelieves implausible results.** Its behavior-aware-history experiment showed **+0.0165**
   (18× the noise floor); the agent's own machinery surfaced the magnitude, the mechanism was diagnosed
   as an evaluation artifact, and the effect became **−0.00167** under an honest policy. The feature
-  ships **disabled**. See [SUBMISSION.md §10](docs/SUBMISSION.md#10-self-correction-the-rejected-breakthrough).
+  ships **disabled**. See [SUBMISSION.md §10](docs/EN/SUBMISSION.md#10-self-correction-the-rejected-breakthrough)
+  (中文: [docs/CN/SUBMISSION.md](docs/CN/SUBMISSION.md)).
 
 ## Architecture at a glance
 
@@ -82,7 +85,8 @@ AGENT (agent/)                          SOLUTION SPACE (pipeline/)
 **The frozen trust boundary** is the central design decision: five files are SHA-256-pinned and
 verified at the start of every run, so the agent can never — accidentally or via a hallucinated
 "fix" — modify the code the score depends on. Every capability routes *around* that boundary, never
-through it. Details in [SYSTEM.md §3](docs/SYSTEM.md#3-frozen-trust-boundary).
+through it. Details in [SYSTEM.md §3](docs/EN/SYSTEM.md#3-frozen-trust-boundary)
+(中文: [docs/CN/SYSTEM.md](docs/CN/SYSTEM.md)).
 
 ## Quick start
 
@@ -128,15 +132,20 @@ records). **◉ Live** streams events from a running agent.
 
 ## Where to read next
 
-| Document | For | Contents |
-|---|---|---|
-| **[docs/SUBMISSION.md](docs/SUBMISSION.md)** | judges & reviewers | The competition narrative: why this is a researcher rather than an AutoML script, results with honest uncertainty, the rejected-breakthrough episode, resource usage, rubric mapping, the 4-minute demo script |
-| **[docs/SYSTEM.md](docs/SYSTEM.md)** | engineers | How it works now: trust boundary, six-block solution space, cache and leakage architecture, agent internals, config validation, statistical machinery, portfolio assembly, convergence semantics, configuration reference, run artifacts, extension rules, known limitations |
-| **[docs/RESEARCH.md](docs/RESEARCH.md)** | reviewers & researchers | The scientific record: metric derivations, the noise model, statistical methodology, every measured finding **including the negative ones**, literature grounding, residual uncertainties, future directions |
-| [docs/PROBLEM_STATEMENT.pdf](docs/PROBLEM_STATEMENT.pdf) | reference | The organizer's brief (immutable) |
+Docs are maintained in English (`docs/EN/`) with a Simplified Chinese translation (`docs/CN/`) of
+the same three files — UI chrome only in the dashboards below is bilingual live; these documents are
+static, so pick the language version you want directly.
+
+| Document | For | Contents | 中文 |
+|---|---|---|---|
+| **[docs/EN/SUBMISSION.md](docs/EN/SUBMISSION.md)** | judges & reviewers | The competition narrative: why this is a researcher rather than an AutoML script, results with honest uncertainty, the rejected-breakthrough episode, resource usage, rubric mapping, the 4-minute demo script | [docs/CN/SUBMISSION.md](docs/CN/SUBMISSION.md) |
+| **[docs/EN/SYSTEM.md](docs/EN/SYSTEM.md)** | engineers | How it works now: trust boundary, six-block solution space, cache and leakage architecture, agent internals, config validation, statistical machinery, portfolio assembly, convergence semantics, configuration reference, run artifacts, extension rules, known limitations | [docs/CN/SYSTEM.md](docs/CN/SYSTEM.md) |
+| **[docs/EN/RESEARCH.md](docs/EN/RESEARCH.md)** | reviewers & researchers | The scientific record: metric derivations, the noise model, statistical methodology, every measured finding **including the negative ones**, literature grounding, residual uncertainties, future directions | [docs/CN/RESEARCH.md](docs/CN/RESEARCH.md) |
+| [docs/PROBLEM_STATEMENT.pdf](docs/PROBLEM_STATEMENT.pdf) | reference | The organizer's brief (immutable, English only) | — |
 
 Evidence labels **[VERIFIED] / [MEASURED] / [LITERATURE] / [PROPOSED]** are used throughout
-RESEARCH.md so implemented facts, measurements and future work are never confused.
+RESEARCH.md (and its `docs/CN/` translation, tags left untranslated) so implemented facts,
+measurements and future work are never confused.
 
 ## Honest status
 
@@ -144,5 +153,5 @@ The margin over baseline is modest (+0.0026 honest) in a benchmark whose ceiling
 noise floor is 0.0009. Every number is validation-side; test performance is unmeasured by
 construction. Several open questions — notably all auxiliary-task arms — are **inconclusive for lack of
 statistical power**, and are reported as such rather than rounded into wins. Full limitations:
-[SUBMISSION.md §11](docs/SUBMISSION.md#11-current-limitations) and
-[SYSTEM.md §24](docs/SYSTEM.md#24-known-engineering-limitations).
+[SUBMISSION.md §11](docs/EN/SUBMISSION.md#11-current-limitations) and
+[SYSTEM.md §24](docs/EN/SYSTEM.md#24-known-engineering-limitations).

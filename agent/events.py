@@ -1,4 +1,4 @@
-"""Structured append-only research event stream -- docs/SYSTEM.md §19 (Research Console).
+"""Structured append-only research event stream -- docs/EN/SYSTEM.md §19 (Research Console).
 
 `run_log.jsonl` records one line per NODE, which is the right granularity for the research ledger but
 too coarse to show the research *loop*: a viewer cannot see the agent observe, hypothesise, write code,
@@ -6,7 +6,7 @@ have that code guarded, train, evaluate, compare against a control, and decide. 
 finer stream. It is additive -- `run_log.jsonl` keeps its existing schema so the old dashboard and any
 downstream tooling continue to work.
 
-Hard rule (docs/SYSTEM.md §19): events carry OBSERVABLE, AUDITABLE artifacts only -- the hypothesis the model
+Hard rule (docs/EN/SYSTEM.md §19): events carry OBSERVABLE, AUDITABLE artifacts only -- the hypothesis the model
 actually emitted, the effective intervention, guard verdicts, metrics, statistics, decisions. Private
 chain-of-thought is never logged, reconstructed, or invented.
 """
