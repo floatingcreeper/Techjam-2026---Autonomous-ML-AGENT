@@ -98,8 +98,28 @@ def _groups(u_sorted):
     return counts
 
 
-def train_ranker(cache_dir, cfg=None):
+DEFAULT_PARAMS = {                     # the historical hardcoded configuration, unchanged
+    "gbm_learning_rate": 0.05, "gbm_num_leaves": 63, "gbm_min_data_in_leaf": 50,
+    "gbm_feature_fraction": 0.8, "gbm_bagging_fraction": 0.8, "gbm_lambda_l2": 0.0,
+    "gbm_num_boost_round": 400,
+}
+
+
+def train_ranker(cache_dir, cfg=None, ext=None):
+    """Fit the LambdaRank booster.
+
+    docs/RESEARCH.md §14: this function used to read ONLY `cfg.seed`, which is why all 14 LightGBM
+    nodes ever run scored exactly 0.60205 with std 0.00000 -- the agent could not tune it at all.
+    That mattered because docs/RESEARCH.md §12 measured LightGBM as the member with the LARGEST ensemble marginal
+    contribution (+0.00121) despite the weakest standalone score.
+
+    The frozen `Cfg` cannot gain fields, so the hyper-parameters come from the `cfg_ext.json`
+    sidecar (pipeline/lib/ext.py). Defaults reproduce the previous hardcoded values exactly, so an
+    lgbm node with no extension knobs still scores 0.60205.
+    """
     import lightgbm as lgb
+    e = dict(DEFAULT_PARAMS)
+    e.update({k: v for k, v in (ext or {}).items() if k in DEFAULT_PARAMS})
     fc = Path(cache_dir) / "gbm"
     Xtr, ytr, utr = _load(fc, "train")
     Xva, yva, uva = _load(fc, "valid")
@@ -108,11 +128,15 @@ def train_ranker(cache_dir, cfg=None):
     dtr = lgb.Dataset(Xtr, label=ytr, group=_groups(utr))
     dva = lgb.Dataset(Xva2, label=yva2, group=_groups(uva2), reference=dtr)
     params = {"objective": "lambdarank", "metric": "ndcg", "ndcg_eval_at": [5],
-              "learning_rate": 0.05, "num_leaves": 63, "min_data_in_leaf": 50,
-              "feature_fraction": 0.8, "bagging_fraction": 0.8, "bagging_freq": 1,
+              "learning_rate": float(e["gbm_learning_rate"]),
+              "num_leaves": int(e["gbm_num_leaves"]),
+              "min_data_in_leaf": int(e["gbm_min_data_in_leaf"]),
+              "feature_fraction": float(e["gbm_feature_fraction"]),
+              "bagging_fraction": float(e["gbm_bagging_fraction"]), "bagging_freq": 1,
+              "lambda_l2": float(e["gbm_lambda_l2"]),
               "label_gain": [0, 1], "verbose": -1, "seed": (cfg.seed if cfg else 0)}
-    model = lgb.train(params, dtr, num_boost_round=400, valid_sets=[dva],
-                      callbacks=[lgb.early_stopping(40, verbose=False)])
+    model = lgb.train(params, dtr, num_boost_round=int(e["gbm_num_boost_round"]),
+                      valid_sets=[dva], callbacks=[lgb.early_stopping(40, verbose=False)])
     return model
 
 

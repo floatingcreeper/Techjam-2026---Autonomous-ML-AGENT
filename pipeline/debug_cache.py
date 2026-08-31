@@ -12,7 +12,7 @@ import numpy as np
 PER_ROW = {                       # subdir ("" = base) -> per-row array stems
     "":    ["X", "y", "u", "vid"],
     "gbm": ["X", "y", "u"],
-    "seq": ["seq", "slen", "tgt"],
+    "seq": ["seq", "fb", "slen", "tgt"],
     "aux": ["aux", "vid"],        # present only after Feature 1
 }
 
@@ -42,6 +42,10 @@ def build(cache_dir, out_dir, n_train=20_000, n_other=10_000, seed=0):
         if mp.exists():
             mm = json.loads(mp.read_text())
             if "sizes" in mm:
-                mm["sizes"] = new_sizes
+                # Only claim sizes for splits this sub-cache actually holds. Since v7 the aux cache
+                # holds train only (the valid/test slices are label-derived holdout data, docs/SYSTEM.md §8), so a
+                # blanket `sizes = new_sizes` would advertise arrays that do not exist.
+                mm["sizes"] = {k: v for k, v in new_sizes.items()
+                               if (d / f"{k}_{stems[0]}.npy").exists()}
             (d / "meta.json").write_text(json.dumps(mm))
     return str(dst)

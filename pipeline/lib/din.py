@@ -12,6 +12,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from evaluate import evaluate
+from pipeline.lib.seq_build import FB_UNKNOWN
 from pipeline.lib.train_np import _build_pair_index
 
 
@@ -23,12 +24,23 @@ class DIN(nn.Module):
     """DeepFM + DIN: an FM (linear + 2nd-order cross) over the base 5 fields keeps the strong
     user x item memorization, plus a DIN interest vector from target-attention over history."""
 
-    def __init__(self, V, fm_dim, k=16, att_hid=32, mlp_hid=64, n_aux=0):
+    def __init__(self, V, fm_dim, k=16, att_hid=32, mlp_hid=64, n_aux=0, n_fb=0):
         super().__init__()
         self.emb = nn.Embedding(V + 2, k, padding_idx=0)     # video: seq + target
+        # Lever B behavior-aware history (docs/RESEARCH.md §11 (behavior-aware history)): each history event carries WHAT THE
+        # USER DID to it (skip / short / normal / long_view / explicit positive / unknown), not just
+        # which video it was. In an autoplay short-video feed an impression is not a positive and a
+        # skip is meaningful negative evidence, so identical-looking histories can mean opposite
+        # things. Requires the chronological cache (docs/RESEARCH.md §10) -- otherwise this would carry FUTURE
+        # outcomes into 21-32% of rows.
+        self.fb = nn.Embedding(n_fb, k, padding_idx=0) if n_fb else None
         self.base = nn.Embedding(fm_dim, k)                  # base 5 fields (FM offset space)
         self.base_w = nn.Embedding(fm_dim, 1)                # FM linear weights
         nn.init.normal_(self.emb.weight, 0, 0.01)
+        if self.fb is not None:
+            nn.init.normal_(self.fb.weight, 0, 0.01)
+            with torch.no_grad():
+                self.fb.weight[0].zero_()                    # PAD contributes nothing
         nn.init.normal_(self.base.weight, 0, 0.01)
         nn.init.zeros_(self.base_w.weight)
         self.bias = nn.Parameter(torch.zeros(1))
@@ -37,9 +49,11 @@ class DIN(nn.Module):
         self.head = nn.Linear(mlp_hid, 1)                                  # primary head
         self.aux_head = nn.Linear(mlp_hid, n_aux) if n_aux else None       # Lever C aux heads
 
-    def forward(self, tgt, seq, basex):
+    def forward(self, tgt, seq, basex, fb=None):
         et = self.emb(tgt)                                   # (B,k)
         eh = self.emb(seq)                                   # (B,L,k)
+        if self.fb is not None and fb is not None:
+            eh = eh + self.fb(fb)                            # behavior-conditioned history event
         mask = (seq > 0).float().unsqueeze(-1)               # (B,L,1)
         etb = et.unsqueeze(1).expand_as(eh)
         a = torch.cat([eh, etb, eh * etb, eh - etb], -1)     # (B,L,4k)
@@ -56,8 +70,16 @@ class DIN(nn.Module):
         return primary, aux
 
 
+def _unpack(entry):
+    """feats.seq[split] is (tgt, seq) or (tgt, seq, fb) -- the behavior-aware history is carried as
+    an optional third element because the frozen FeatureSet cannot gain a field."""
+    if len(entry) == 3:
+        return entry[0], entry[1], entry[2]
+    return entry[0], entry[1], None
+
+
 def predict(model, feats, split, dev, bs=8192):
-    tgt, seq = feats.seq[split]
+    tgt, seq, fb = _unpack(feats.seq[split])
     X = np.asarray(feats.X[split])
     model.eval()
     outs = []
@@ -66,12 +88,14 @@ def predict(model, feats, split, dev, bs=8192):
             t = torch.as_tensor(tgt[i:i + bs], dtype=torch.long, device=dev)
             s = torch.as_tensor(seq[i:i + bs], dtype=torch.long, device=dev)
             x = torch.as_tensor(X[i:i + bs], dtype=torch.long, device=dev)
-            outs.append(model(t, s, x)[0].float().cpu().numpy())   # [0] = primary head
+            f = (torch.as_tensor(np.asarray(fb[i:i + bs]), dtype=torch.long, device=dev)
+                 if fb is not None else None)
+            outs.append(model(t, s, x, f)[0].float().cpu().numpy())   # [0] = primary head
     return np.concatenate(outs).astype(np.float32)
 
 
-def fit_din(model, feats, cfg, dev):
-    tgt_tr, seq_tr = feats.seq["train"]
+def fit_din(model, feats, cfg, dev, fb_drop=0.0):
+    tgt_tr, seq_tr, fb_tr = _unpack(feats.seq["train"])
     X_tr = np.asarray(feats.X["train"])
     y_tr = np.asarray(feats.y["train"]); u_tr = np.asarray(feats.users["train"])
     # Lever C: auxiliary targets (N, K) + per-task weights, if requested
@@ -99,11 +123,22 @@ def fit_din(model, feats, cfg, dev):
         P, negpool, ns, nl = _build_pair_index(y_tr, u_tr)
         pair = (P, negpool, ns, nl, max(1, int(cfg.neg_ratio)))
 
-    def fwd(idx):
+    def fwd(idx, train_mode=True):
         t = torch.as_tensor(tgt_tr[idx], dtype=torch.long, device=dev)
         s = torch.as_tensor(seq_tr[idx], dtype=torch.long, device=dev)
         x = torch.as_tensor(X_tr[idx], dtype=torch.long, device=dev)
-        return model(t, s, x)
+        f = None
+        if fb_tr is not None:
+            f = torch.as_tensor(np.asarray(fb_tr[idx]), dtype=torch.long, device=dev)
+            # Feedback-state dropout. Under the honest "train_only" cache policy the model trains on
+            # 100% known history outcomes but sees only ~82% (valid) / ~52% (test) at scoring time.
+            # Measured: that train/serve mismatch made behavior-aware history a NEGATIVE result
+            # (-0.00166). Randomly masking states to FB_UNKNOWN during training makes the training
+            # distribution resemble inference. See docs/RESEARCH.md §11 (behavior-aware history).
+            if train_mode and fb_drop > 0.0:
+                keep = torch.rand(f.shape, device=dev) >= fb_drop
+                f = torch.where(keep | (s == 0), f, torch.full_like(f, FB_UNKNOWN))
+        return model(t, s, x, f)
 
     for ep in range(1, cfg.epochs + 1):
         model.train()
