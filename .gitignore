@@ -13,12 +13,24 @@ __pycache__/
 *.pyc
 *.pyo
 
-# Agent run artifacts (large cache + per-run outputs)
-runs/
-agent/frozen.lock
+# Agent run artifacts.
+#   The per-run EVIDENCE TRAIL ships: run_log.jsonl, events.jsonl, resource_report.json and
+#   results.md are what the documentation cites and what the Research Console replays (~600 KB
+#   for every run in the project's history).
+#   Everything else under runs/ stays out: runs/_cache/ is a 475 MB derived cache rebuilt in
+#   ~60 s, runs/_holdout/ holds the HIDDEN TEST LABELS and must never be published, and the
+#   per-node score arrays and submission CSVs are tens of MB of regenerable binary.
+runs/*
+!runs/run_*/
+runs/run_*/*
+!runs/run_*/run_log.jsonl
+!runs/run_*/events.jsonl
+!runs/run_*/resource_report.json
+!runs/run_*/results.md
+!runs/_ledger.jsonl
 
 # Data (downloaded separately from kuairand.com, ~195 MB)
 KuaiRand-Pure/data/
 
-# Random stuff
+# Local scratch
 archives/

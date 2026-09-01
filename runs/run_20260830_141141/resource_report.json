@@ -1,0 +1,33 @@
+{
+  "best_single_node": "n1",
+  "best_single_valid": 0.60361,
+  "final_valid": 0.60464,
+  "ensemble": {
+    "members": [
+      "n1",
+      "n4",
+      "n3"
+    ],
+    "weights": [
+      0.4,
+      0.2,
+      0.4
+    ],
+    "valid_primary": 0.60464
+  },
+  "delta_over_fm": 0.0031,
+  "submission_valid": true,
+  "ablation_best_by_lever": {
+    "-": 0.60147,
+    "A": 0.60361,
+    "B": 0.60329,
+    "C": 0.60241,
+    "D": 0.60205
+  },
+  "resource_totals": {
+    "input_tokens": 480,
+    "output_tokens": 360,
+    "wall_clock_s": 159.5,
+    "iters": 5
+  }
+}

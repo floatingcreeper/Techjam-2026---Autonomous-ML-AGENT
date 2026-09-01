@@ -1,0 +1,61 @@
+{
+  "best_single_node": "n6",
+  "best_single_valid": 0.603425,
+  "final_valid": 0.60395,
+  "ensemble": {
+    "members": [
+      "n1",
+      "champion"
+    ],
+    "weights": [
+      0.6,
+      0.4
+    ],
+    "valid_primary": 0.60395
+  },
+  "delta_over_fm": 0.0024,
+  "submission_valid": true,
+  "ablation_best_by_lever": {
+    "-": 0.60147,
+    "A": 0.60321,
+    "B": 0.60368,
+    "C": 0.60327,
+    "D": 0.60205,
+    "resume": 0.60361
+  },
+  "reeval": {
+    "n1": {
+      "orig": 0.60368,
+      "seed_mean": 0.60314,
+      "seeds": [
+        0.60368,
+        0.60304,
+        0.6027
+      ]
+    },
+    "champion": {
+      "orig": 0.60361,
+      "seed_mean": 0.60314,
+      "seeds": [
+        0.60361,
+        0.60316,
+        0.60266
+      ]
+    },
+    "n6": {
+      "orig": 0.60342,
+      "seed_mean": 0.60347,
+      "seeds": [
+        0.60342,
+        0.60439,
+        0.60261
+      ]
+    }
+  },
+  "resource_totals": {
+    "input_tokens": 3175,
+    "output_tokens": 654,
+    "wall_clock_s": 315.3,
+    "iters": 6
+  }
+}

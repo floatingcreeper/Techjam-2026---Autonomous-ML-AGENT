@@ -1,0 +1,62 @@
+{
+  "best_single_node": "n1",
+  "best_single_valid": 0.60361,
+  "final_valid": 0.60479,
+  "ensemble": {
+    "members": [
+      "n1",
+      "n4",
+      "n3"
+    ],
+    "weights": [
+      0.4,
+      0.4,
+      0.2
+    ],
+    "valid_primary": 0.60479
+  },
+  "delta_over_fm": 0.0033,
+  "submission_valid": true,
+  "ablation_best_by_lever": {
+    "-": 0.60147,
+    "A": 0.60361,
+    "B": 0.60334,
+    "C": 0.60301,
+    "D": 0.60205
+  },
+  "reeval": {
+    "n1": {
+      "orig": 0.60361,
+      "seed_mean": 0.60314,
+      "seeds": [
+        0.60361,
+        0.60316,
+        0.60266
+      ]
+    },
+    "n4": {
+      "orig": 0.60334,
+      "seed_mean": 0.60282,
+      "seeds": [
+        0.60334,
+        0.60286,
+        0.60226
+      ]
+    },
+    "n5": {
+      "orig": 0.60301,
+      "seed_mean": 0.60237,
+      "seeds": [
+        0.60301,
+        0.60244,
+        0.60165
+      ]
+    }
+  },
+  "resource_totals": {
+    "input_tokens": 480,
+    "output_tokens": 360,
+    "wall_clock_s": 160.1,
+    "iters": 5
+  }
+}

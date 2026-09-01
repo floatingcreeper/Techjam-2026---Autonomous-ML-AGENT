@@ -606,6 +606,15 @@ python -m tests.test_sequence       # 时间顺序 + 反馈状态泄漏安全性
 持久化内容：`runs/_cache/`（DataBundle 数据束）、`runs/_holdout/`（标签衍生数据，代码块永不可见）、
 `runs/_champion/`（跨运行冠军模型）、`runs/_ledger.jsonl`（跨运行证据）。
 
+**哪些内容被提交进了代码库。** 证据链会随代码库一起分发：项目历史上**每一次**运行的
+`run_log.jsonl`、`events.jsonl`、`resource_report.json` 与 `results.md`，外加 `runs/_ledger.jsonl`
+与 `agent/frozen.lock`。本系列文档中的每一个数字都是对照这些文件核对的，而它们也正是研究控制台
+回放一次运行所需要的全部内容——因此一份全新的克隆无需训练任何模型，就能核验这些结论并回看整个过程。
+
+刻意**不**提交的内容：`runs/_cache/`（475 MB 的派生缓存，约 60 秒即可重建）、
+`runs/_holdout/`（**其中存放着隐藏测试集标签——公开它等于泄漏基准刻意隐藏的东西**）、
+`runs/_champion/`，以及每个节点的分数数组、代码块快照与提交用 CSV（数十 MB 可再生成的二进制文件）。
+
 **`run_log.jsonl` 的记录字段**：`iter, phase, node_id, parent_id, lever, hypothesis, problem_identified,
 config, cfg_ext, code_diff, metrics{GAUC, nDCG@5, primary_valid, primary_unbiased, …},
 status, evidence{class, delta_primary, delta_GAUC, delta_nDCG, boot_se, p_gt0, ci_lo, ci_hi,

@@ -1,0 +1,47 @@
+{
+  "best_single_node": "n1",
+  "best_single_valid": 0.60361,
+  "final_valid": 0.60361,
+  "ensemble": null,
+  "delta_over_fm": 0.0021,
+  "submission_valid": true,
+  "ablation_best_by_lever": {
+    "-": 0.60147,
+    "A": 0.60361
+  },
+  "reeval": {
+    "n1": {
+      "orig": 0.60361,
+      "seed_mean": 0.60314,
+      "seeds": [
+        0.60361,
+        0.60316,
+        0.60266
+      ]
+    },
+    "root": {
+      "orig": 0.60147,
+      "seed_mean": 0.60144,
+      "seeds": [
+        0.60147,
+        0.60176,
+        0.60109
+      ]
+    },
+    "n2": {
+      "orig": 0.59971,
+      "seed_mean": 0.5992,
+      "seeds": [
+        0.59971,
+        0.59877,
+        0.59913
+      ]
+    }
+  },
+  "resource_totals": {
+    "input_tokens": 240,
+    "output_tokens": 180,
+    "wall_clock_s": 145.0,
+    "iters": 2
+  }
+}

@@ -625,6 +625,17 @@ python -m tests.test_sequence       # chronology + feedback-state leakage safety
 Persistent: `runs/_cache/` (DataBundle), `runs/_holdout/` (label-derived, never block-visible),
 `runs/_champion/` (cross-run champion), `runs/_ledger.jsonl` (cross-run evidence).
 
+**What is committed.** The evidence trail ships with the repository: `run_log.jsonl`,
+`events.jsonl`, `resource_report.json` and `results.md` for **every** run in the project's history,
+plus `runs/_ledger.jsonl` and `agent/frozen.lock`. That is what every number in these documents is
+checked against, and it is all the Research Console needs to replay a run — so a fresh clone can
+verify the claims and watch the run without training anything.
+
+Deliberately **not** committed: `runs/_cache/` (a 475 MB derived cache, rebuilt in ~60 s),
+`runs/_holdout/` (**it holds the hidden test labels — publishing it would leak exactly what the
+benchmark withholds**), `runs/_champion/`, and the per-node score arrays, block snapshots and
+submission CSVs (tens of MB of regenerable binary).
+
 **`run_log.jsonl` record**: `iter, phase, node_id, parent_id, lever, hypothesis, problem_identified,
 config, cfg_ext, code_diff, metrics{GAUC, nDCG@5, primary_valid, primary_unbiased, …},
 status, evidence{class, delta_primary, delta_GAUC, delta_nDCG, boot_se, p_gt0, ci_lo, ci_hi,

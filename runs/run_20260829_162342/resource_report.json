@@ -1,0 +1,17 @@
+{
+  "best_single_node": "root",
+  "best_single_valid": 0.60147,
+  "final_valid": 0.60147,
+  "ensemble": null,
+  "delta_over_fm": -0.0,
+  "submission_valid": true,
+  "ablation_best_by_lever": {
+    "-": 0.60147
+  },
+  "resource_totals": {
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "wall_clock_s": 36.9,
+    "iters": 0
+  }
+}

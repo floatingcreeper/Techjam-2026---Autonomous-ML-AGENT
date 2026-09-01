@@ -1,0 +1,48 @@
+{
+  "best_single_node": "champion",
+  "best_single_valid": 0.60361,
+  "final_valid": 0.60361,
+  "ensemble": null,
+  "delta_over_fm": 0.0021,
+  "submission_valid": true,
+  "ablation_best_by_lever": {
+    "-": 0.60147,
+    "A": 0.60361,
+    "resume": 0.60361
+  },
+  "reeval": {
+    "champion": {
+      "orig": 0.60361,
+      "seed_mean": 0.60314,
+      "seeds": [
+        0.60361,
+        0.60316,
+        0.60266
+      ]
+    },
+    "n1": {
+      "orig": 0.60361,
+      "seed_mean": 0.60314,
+      "seeds": [
+        0.60361,
+        0.60316,
+        0.60266
+      ]
+    },
+    "n2": {
+      "orig": 0.60361,
+      "seed_mean": 0.60314,
+      "seeds": [
+        0.60361,
+        0.60316,
+        0.60266
+      ]
+    }
+  },
+  "resource_totals": {
+    "input_tokens": 480,
+    "output_tokens": 360,
+    "wall_clock_s": 196.9,
+    "iters": 3
+  }
+}

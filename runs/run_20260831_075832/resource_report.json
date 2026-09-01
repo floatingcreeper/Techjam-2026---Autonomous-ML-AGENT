@@ -1,0 +1,149 @@
+{
+  "stop_reason": "official_convergence",
+  "benchmark": {
+    "official_convergence_rule": {
+      "epsilon": 0.002,
+      "N": 3,
+      "source": "baseline_scores.json"
+    },
+    "official_converged": true,
+    "experiments_executed": 4,
+    "max_iter_hard_cap": 50,
+    "proposal_attempts": 5,
+    "proposals_rejected": 1,
+    "wall_clock_s": 209.7,
+    "wall_clock_backstop_s": 21600.0,
+    "best_series": [
+      0.60147,
+      0.60361,
+      0.60361,
+      0.60361,
+      0.60361
+    ],
+    "research_stall_at_stop": 0,
+    "proposal_guard_at_stop": 0
+  },
+  "best_single_node": "n1",
+  "best_single_valid": 0.60361,
+  "final_valid_tuned": 0.6045767787197858,
+  "final_valid_honest": {
+    "kind": "portfolio_cv",
+    "estimate": 0.6041866895100492,
+    "se": 0.0015881481192566097
+  },
+  "delta_over_fm_tuned": 0.00308,
+  "delta_over_fm_honest": 0.00269,
+  "ensemble": {
+    "ok": true,
+    "members": [
+      "n1",
+      "n3",
+      "n4",
+      "root"
+    ],
+    "member_families": [
+      "fm",
+      "lgbm",
+      "din",
+      "fm"
+    ],
+    "weights": [
+      0.25,
+      0.25,
+      0.25,
+      0.25
+    ],
+    "valid_primary_tuned": 0.6045767787197858,
+    "cv_mean": 0.6041866895100492,
+    "cv_se": 0.0015881481192566097,
+    "cv_folds": [
+      0.6057433920025594,
+      0.6033154230030835,
+      0.6053942565704824,
+      0.5985491373304305,
+      0.6079312386436901
+    ],
+    "cv_best_single_mean": 0.6037615124254152,
+    "cv_gain_over_best_single": 0.0004251770846339653,
+    "cv_gain_se": 0.00026032283388789705,
+    "K": 5,
+    "fold_members": [
+      [
+        "n1",
+        "n3",
+        "n4",
+        "root"
+      ],
+      [
+        "n1",
+        "n3",
+        "n4",
+        "root"
+      ],
+      [
+        "n1",
+        "n3",
+        "n4",
+        "root"
+      ],
+      [
+        "n1",
+        "n3",
+        "n4"
+      ],
+      [
+        "n1",
+        "n3",
+        "root",
+        "n4"
+      ]
+    ]
+  },
+  "portfolio_valuation": {
+    "root": {
+      "rank_corr_to_best": 0.8854,
+      "pair_blend_gain": 0.000378,
+      "emc": 0.000137,
+      "standalone_primary": 0.60147
+    },
+    "n1": {
+      "rank_corr_to_best": 1.0,
+      "pair_blend_gain": 0.0,
+      "emc": 0.000313,
+      "standalone_primary": 0.60361
+    },
+    "n2": {
+      "rank_corr_to_best": 0.8667,
+      "pair_blend_gain": 0.000168,
+      "emc": 0.0,
+      "standalone_primary": 0.599705
+    },
+    "n3": {
+      "rank_corr_to_best": 0.8652,
+      "pair_blend_gain": 0.000435,
+      "emc": 0.000286,
+      "standalone_primary": 0.602053
+    },
+    "n4": {
+      "rank_corr_to_best": 0.8934,
+      "pair_blend_gain": 0.000482,
+      "emc": 0.000348,
+      "standalone_primary": 0.603008
+    }
+  },
+  "training_variance": null,
+  "submission_valid": true,
+  "ablation_best_by_lever": {
+    "-": 0.60147,
+    "A": 0.60361,
+    "B": 0.60301,
+    "D": 0.60205
+  },
+  "uncertainty_note": "final_valid_tuned is measured on the same users used to tune the blend weights and is OPTIMISTIC (measured optimism ~+0.0007, ENHANCEMENTS.md \u00a73.7). final_valid_honest is a user-level K-fold cross-validation of the whole assembly procedure. 'training_variance' is a different quantity again: it measures re-training stochasticity, not validation-sample uncertainty.",
+  "resource_totals": {
+    "input_tokens": 560,
+    "output_tokens": 420,
+    "wall_clock_s": 198.4,
+    "iters": 5
+  }
+}
