@@ -1,0 +1,15 @@
+# Deterministic checkout.
+#
+# The five harness files are SHA-256-pinned in agent/frozen.lock and verified by
+# agent/guardrails.py::ensure_frozen() at the start of every run. That hash is taken over the
+# WORKING-TREE bytes, so a checkout that rewrites line endings changes the hash and aborts the
+# run. Without this file, a clone on a machine with core.autocrlf=true gets CRLF for files
+# stored as LF and `python -m agent.run --smoke` fails with "FROZEN FILE MODIFIED".
+#
+# Normalising every text file to LF in the working tree makes the checkout byte-identical on
+# Linux, macOS and Windows, which is what the pin requires.
+* text=auto eol=lf
+
+*.pdf binary
+*.npy binary
+*.csv text eol=lf
