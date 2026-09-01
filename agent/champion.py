@@ -1,4 +1,4 @@
-"""Cross-run champion (F3): a durable snapshot of the best validated single node, so a later run
+"""Cross-run champion: a durable snapshot of the best validated single node, so a later run
 resumes from the high-water mark instead of starting cold. Stored as a block snapshot + cfg + a
 small metadata file, mirroring the run-node layout so it can be re-validated by the normal runner.
 """

@@ -4,17 +4,8 @@
 (evidence, derivations, negative results) see [RESEARCH.md](RESEARCH.md); for the competition
 narrative see [SUBMISSION.md](SUBMISSION.md); for orientation see the [README](../../README.md).
 
-Where this document and any older text disagree, this document and the code win.
-
-> **Documentation freeze, 2026-08-31.** Eight historical design, integration and plan documents were
-> consolidated into the four authoritative documents (README · SYSTEM · RESEARCH · SUBMISSION) and
-> then removed. Nothing was lost: engineering content is in this document, scientific content and all
-> measurements are in [RESEARCH.md](RESEARCH.md), and the competition narrative is in
-> [SUBMISSION.md](SUBMISSION.md). Several claims in those older documents were **stale or wrong** and
-> have been corrected against current code and run artifacts — notably the convergence window, the
-> cache version, the "physically impossible" leakage wording, the sequence temporal-safety guarantee,
-> the ensemble methodology, and the finalization behaviour. Source-code comments referencing the old
-> documents were updated to point here.
+This document tracks the code. Where the two disagree, the code is authoritative and this document
+is the defect.
 
 ---
 
@@ -68,8 +59,8 @@ for why tuned ≠ honest.
 1. **Two layers behind a fixed boundary.** *What* the agent searches (`pipeline/`, the solution space)
    is separated from *how* it searches (`agent/`, the policy). The orchestrator drives an FM, a
    LightGBM or a DIN without knowing anything about them.
-2. **The agent is judged, not just the model.** Roughly 40% of the TechJam rubric is agent behaviour
-   (autonomy, robustness, feasibility), so the loop is engineered as carefully as the levers.
+2. **The agent is the deliverable, not just the model.** Track 2 asks for an autonomous researcher,
+   so the loop — autonomy, robustness, recovery, cost — is engineered as carefully as the levers.
 3. **Trust the score.** Everything the score depends on is frozen and hash-pinned (§3).
 4. **Best-checkpoint invariant.** The submission is always the validated best object, tracked
    independently of the (possibly non-monotonic) search path.
@@ -139,7 +130,8 @@ OBSERVABILITY  dashboard/research-console.html · dashboard/hypothesis-ledger.ht
 
 ## 5. Six-block solution space
 
-A node's model is six Python files executed in order by the frozen runner:
+A node's model is six Python files. The frozen runner executes the first five in order; `combine` is
+the assembly-phase hook, called by the portfolio machinery rather than by the runner:
 
 ```python
 build_features(bundle, cfg) -> FeatureSet
@@ -151,8 +143,9 @@ combine(base, cfg)          -> np.ndarray                         # assembly-pha
 ```
 
 `pipeline/baseline_blocks/` is the FM+BCE baseline **and** the ablation control (the root node).
-`build_loss` returns `make_loss(cfg)`, so `loss_type` is a genuine configuration knob — it previously
-hardcoded BCE, which silently disabled Lever A (see [RESEARCH.md](RESEARCH.md#7-bpr-theory-and-measured-result)).
+`build_loss` returns `make_loss(cfg)`, so `loss_type` is a genuine configuration knob. A block that
+hardcodes its loss instead silently disables Lever A and returns a baseline result under a BPR label
+(see [RESEARCH.md](RESEARCH.md#7-bpr-theory-and-measured-result)) — which is what §11 exists to catch.
 
 `FeatureSet` is frozen and cannot gain a field. Anything extra is either computed in the trainer, or
 carried in an existing optional field — the behavior-aware history rides as an optional third element
@@ -167,7 +160,7 @@ of the `seq` tuple.
 nodes run concurrently without collision.
 
 On disk: `runs/<run_id>/nodes/<id>/{blocks/*.py, cfg.json, cfg_ext.json, provenance.json,
-metrics.json, val_scores.npy, test_scores.npy, stdout.log}`.
+metrics.json, val_scores.npy, test_scores.npy, rand_scores.npy}`.
 
 Three mutation kinds:
 
@@ -223,7 +216,7 @@ Three guarantees, asserted at build time and independently re-verified in `tests
 
 1. **No future event appears in any history.** The build raises if any within-user time inversion
    survives the sort. (The previous row-order-based construction violated this for 30.83% of train,
-   20.89% of valid and 31.54% of test rows — see [RESEARCH.md](RESEARCH.md#10-sequence-chronology-a-corrected-guarantee).)
+   20.89% of valid and 31.54% of test rows — see [RESEARCH.md](RESEARCH.md#10-sequence-chronology-and-the-temporal-guarantee).)
 2. **No train/valid row sees a test-window event.** Filtering on split index as well as time makes
    this structural. It matters because `date` and `time_ms` disagree at the split boundary: 28
    test-dated rows carry timestamps earlier than the last valid row.
@@ -251,17 +244,17 @@ are layered; none is described as absolute.
 | Runtime tripwire | any node scoring above `leak_tripwire_primary` (0.70) is **quarantined**, excluded from the tree and the portfolio | `agent/orchestrator.py` |
 | Sequence policy | `fb_policy="train_only"` (§7) | `pipeline/lib/seq_build.py` |
 
-**Accurate claim:** *agent-written blocks are not given hidden-test labels or current-row outcome
-proxies, and label-derived holdout data is kept outside the block-visible data interface, backed by a
-static read guard and a plausibility tripwire.* Earlier documentation called this "physically
-impossible"; that was overstated and is retired — see
-[RESEARCH.md](RESEARCH.md#9-the-holdout-leak-that-was-open).
+**The claim, stated exactly:** *agent-written blocks are not given hidden-test labels or current-row
+outcome proxies, and label-derived holdout data is kept outside the block-visible data interface,
+backed by a static read guard and a plausibility tripwire.* It is deliberately **not** stated as
+"label access is physically impossible" — that would be stronger than the mechanisms support. See
+[RESEARCH.md](RESEARCH.md#9-label-leakage-the-risk-and-the-containment).
 
 Why the tripwire is calibrated where it is: ranking valid by `is_click` alone scores **0.7466**, which
 is 58.8% of the entire oracle headroom above FM. Real progress here is measured in thousandths, so a
 jump of that size is a bug or a leak, never a model.
 
-`tests/test_leakage.py` asserts all of the above (23 checks), including that six hostile block sources
+`tests/test_leakage.py` asserts all of the above (26 checks), including that six hostile block sources
 are rejected and five legitimate ones still pass.
 
 ---
@@ -278,7 +271,7 @@ are rejected and five legitimate ones still pass.
 | **F** | portfolio: rank-space blend | implemented, K-fold cross-validated | `agent/portfolio.py` |
 | — | behavior-aware history (`use_fb`) | implemented, **default OFF** — measured negative | `lib/seq_build.py`, `lib/din.py` |
 
-Two naming corrections that matter scientifically: `train_np._ips_weights` computes
+Two naming points that matter scientifically: `train_np._ips_weights` computes
 `w ∝ 1/√freq(item)`, which is **inverse-popularity weighting, not inverse propensity**; and the
 random-exposure split is reported as a **second robustness surface**, never as the competition target.
 
@@ -365,10 +358,10 @@ must change predictions, a not-honoured knob must leave them **bit-identical**.
 
 ## 12. Deduplication and no-op handling
 
-**Identity is content-based.** `signature = sha256(cfg + cfg_ext + all six block sources)`. The earlier
-signature hashed the unified diff *against the parent*, so two nodes with identical configs and
-identical block sources got different signatures when reached from different parents — which is how a
-re-run of an earlier node was once recorded as a new scientific finding.
+**Identity is content-based.** `signature = sha256(cfg + cfg_ext + all six block sources)`. Hashing a
+unified diff *against the parent* instead gives two nodes with identical configs and identical block
+sources different signatures whenever they are reached from different parents — which is how a re-run
+of an existing node ends up recorded as a new scientific finding.
 
 Three post-hoc classes, kept distinct:
 
@@ -419,8 +412,8 @@ substituting the model (§18).
 
 **Scientific evidence and tree status are separate.** A node carries `status` (tree/adoption
 bookkeeping), `evidence` (what the bootstrap says), and `noop_class` (whether an intervention happened
-at all). Collapsing them once caused the agent to be told "REJECTED — don't repeat" about its own best
-model. Buckets are now: `confirmed`, `promising`, `inconclusive`, `rejected`, `no_effect`,
+at all). Collapsing them into a single label is what gets an agent told "REJECTED — don't repeat"
+about its own best model. Buckets are: `confirmed`, `promising`, `inconclusive`, `rejected`, `no_effect`,
 `unsupported_capability`, plus an explicit `diverse_portfolio_candidates` list and a separately
 surfaced champion.
 
@@ -430,7 +423,7 @@ the validation set can resolve, so the mechanism or the design must change.
 `agent/ledger.py` persists every executed experiment to `runs/_ledger.jsonl` keyed by an **arm**
 (`family|loss|aux`, deliberately excluding seed, since seeds are repetitions not arms). Pooling is
 gated by `compatible()`, which requires the same `cache_version` **and** the same `code_state` hash.
-This guard is load-bearing: it is what invalidated an earlier cross-run conclusion drawn across a cache
+This guard is load-bearing: applying it retires a cross-run conclusion that was drawn across a cache
 change ([RESEARCH.md](RESEARCH.md#8-auxiliary-task-investigation)). `ResearchInsight` records are
 generated rule-based from the ledger, with no extra LLM call.
 
@@ -476,10 +469,10 @@ submission. Only the third may be quoted as unbiased. Regularisation: coarse wei
 | **Liveness guard** | `proposal_guard_limit` — the Proposer cannot emit anything executable | Only in the pathological case; reported as `proposal_guard`, never as convergence |
 
 `OFFICIAL_EPS` and `OFFICIAL_N` are read at import from `baseline_scores.json → convergence_rule`, so
-the code cannot drift from the organizer's artifact. The repository previously shipped `N = 6`, which
-was a deviation in the *loosening* direction (N=6 needs 7 scored nodes without improvement, N=3 needs
-4); `docs/PROBLEM_STATEMENT.pdf` is an image-only scan and cannot arbitrate, so the JSON is
-authoritative. **N = 3.**
+the code cannot drift from the organizer's artifact. `docs/PROBLEM_STATEMENT.pdf` is an image-only scan
+and cannot arbitrate, so the JSON is authoritative: **ε = 0.002, N = 3.** Any larger `N` loosens the
+rule rather than tightening it — `N = 6` needs 7 scored nodes without improvement before it fires,
+`N = 3` needs 4.
 
 **Compute is deliberately not the binding constraint.** Under the official rule a run converges after
 roughly 4–6 experiments. The objective is *not* to spend the quota — it is to make every
@@ -626,7 +619,8 @@ python -m tests.test_sequence       # chronology + feedback-state leakage safety
 | `resource_report.json` | benchmark accounting, tuned vs honest results, portfolio valuation, training variance, stop reason |
 | `results.md` | short human-readable results table |
 | `best/submission_test.csv` | the submission (passes `submit.py --check`) |
-| `nodes/<id>/` | blocks snapshot, `cfg.json`, `cfg_ext.json`, `provenance.json`, `metrics.json`, `val_scores.npy`, `test_scores.npy`, `stdout.log` |
+| `nodes/<id>/` | blocks snapshot, `cfg.json`, `cfg_ext.json`, `provenance.json`, `metrics.json`, `val_scores.npy`, `test_scores.npy`, `rand_scores.npy` |
+| `reeval/` | multi-seed re-training scores for a stochastic finalist (§13), when `recheck` fires |
 
 Persistent: `runs/_cache/` (DataBundle), `runs/_holdout/` (label-derived, never block-visible),
 `runs/_champion/` (cross-run champion), `runs/_ledger.jsonl` (cross-run evidence).
@@ -668,35 +662,9 @@ required field to a Pydantic schema breaks every direct constructor including th
 
 ---
 
-## 23a. Provenance of adopted capabilities
-
-Six capabilities were reviewed from three teammates' archives (`archives/aerin`, `archives/jx`,
-`archives/jon`) and implemented on this repository's rails rather than copied. **None of them touches
-the frozen harness** — even the safety guards work *around* the frozen runner.
-
-| Capability | Source of the idea | Where it lives now |
-|---|---|---|
-| Multi-task auxiliary heads (Lever C) | `aerin/sequence_ranker.py` | `lib/din.py` aux head, `lib/aux_build.py`, `lib/din_blocks/` |
-| Experiment Log dashboard (formerly "Hypothesis Ledger") | `jx/hypothesis-ledger.html` | `dashboard/hypothesis-ledger.html` (still works; superseded for demos by the Research Console, §19) |
-| Cross-run champion resume | `jx/agent/controller.py` | `agent/champion.py` (default off) |
-| Multi-seed re-evaluation | `jon/agent/reeval.py` | `agent/reeval.py` — now scoped to stochastic families only (§13) |
-| Debug-first sample gate | `jon/agent/debug_run.py` | `pipeline/debug_cache.py`, `executor.debug_gate` (§17) |
-| Test-label data guard | `jon/agent/data_guard.py` | `datced.load_bundle` + the layered protections in §8 |
-
-Deliberately **not** adopted, after reading the actual sources: Aerin's `IntraUserPairSampler` (our
-`train_np._fit_pair` is already fully vectorised with a flat negative pool; Aerin's loops over users
-each epoch), Aerin's DIN as a parallel block set (redundant with `din_blocks`; we took only its
-multi-task idea), Aerin's hardcoded linear experiment registry, JX's whole-file-rewrite controller
-(a single-path rewriter, inferior to a tree search over a block contract), and Jon's constrained
-`action_space` + greedy linear chain (his agent can only set hyper-parameters on one hand-rolled FM and
-never branches). We took Jon's *safety mechanisms*, not his loop.
-
----
-
 ## 24. Known engineering limitations
 
-* **`max_llm_usd` is declared but never enforced.** There is no LLM spend cap. *(Known issue; not
-  fixed under the documentation freeze.)*
+* **`max_llm_usd` is declared but never enforced.** There is no LLM spend cap.
 * **Dead `Cfg` fields.** `use_seq, use_vstat, use_aux, lambdarank, ensemble_members, L, alpha` are read
   by no block. `Cfg.loss_type`'s in-file comment advertises a `blend` value that `make_loss` does not
   implement — `blockspec` rejects it before a wasted launch.

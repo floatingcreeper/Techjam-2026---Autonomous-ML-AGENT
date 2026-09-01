@@ -38,7 +38,7 @@ class Node:
     block_dir: str
     lever: str = ""
     hypothesis: str = ""
-    problem: str = ""                 # 1B: the Proposer's problem_identified diagnosis
+    problem: str = ""                 # the Proposer's problem_identified diagnosis
     metrics: dict | None = None       # {GAUC, nDCG@5, primary_valid, ...}
     status: str = "pending"           # tree/adoption bookkeeping
     evidence: dict = field(default_factory=dict)      # paired-bootstrap verdict vs. its control

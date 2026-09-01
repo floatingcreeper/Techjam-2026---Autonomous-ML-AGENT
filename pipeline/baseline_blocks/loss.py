@@ -1,6 +1,6 @@
 """BASELINE loss block -- routes the objective through `make_loss(cfg)` (Lever A).
 
-docs/RESEARCH.md §7: this block previously HARDCODED BCE and never read `cfg.loss_type`, so a
+docs/EN/RESEARCH.md §7: this block previously HARDCODED BCE and never read `cfg.loss_type`, so a
 `{"loss_type": "bpr"}` config mutation silently trained plain BCE and returned metrics byte-identical
 to the root node. That happened in 4 of 21 recorded runs; it cost the reference run +0.0021 on its
 strongest lever and wrote a fabricated negative result ("BPR -> 0.6015, rejected") into memory.

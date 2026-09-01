@@ -15,8 +15,8 @@ Every substantive claim carries one:
 | **[LITERATURE]** | Supported by an external paper, cited in §18. |
 | **[PROPOSED]** | Not implemented. Future work. |
 
-Where an older document disagrees with a current measurement, the measurement wins — including where
-the older document is an earlier version of *this* one (§8 records one such self-correction).
+Where a claim and a measurement disagree, the measurement wins. Measurements that no longer apply are
+kept and labelled as superseded rather than deleted (§8).
 
 ---
 
@@ -26,7 +26,7 @@ the older document is an earlier version of *this* one (§8 records one such sel
 3. [Metrics](#3-metrics-and-mathematical-definitions) · 4. [Noise & uncertainty](#4-noise-and-uncertainty-model) ·
 5. [Statistical methodology](#5-statistical-methodology) · 6. [Why BCE is mismatched](#6-why-bce-is-mismatched) ·
 7. [BPR](#7-bpr-theory-and-measured-result) · 8. [Auxiliary tasks](#8-auxiliary-task-investigation) ·
-9. [The holdout leak](#9-the-holdout-leak-that-was-open) · 10. [Sequence chronology](#10-sequence-chronology-a-corrected-guarantee) ·
+9. [Label leakage](#9-label-leakage-the-risk-and-the-containment) · 10. [Sequence chronology](#10-sequence-chronology-and-the-temporal-guarantee) ·
 11. [Behavior-aware history & the +0.0165 artifact](#11-behavior-aware-history-and-the-00165-artifact) ·
 12. [Ensemble & portfolio](#12-ensemble--portfolio-findings) · 13. [DIN](#13-din-findings) · 14. [LightGBM](#14-lightgbm-findings) ·
 15. [Exposure & randomized data](#15-exposure-and-randomized-data-findings) · 16. [Cross-run evidence](#16-cross-run-evidence) ·
@@ -164,7 +164,7 @@ conflating them produces wrong decisions. **[MEASURED]**
 |---|---|---|---|
 | Training stochasticity — FM | same cfg, same seed | **0.00000** (n=24 nodes, all exactly 0.60147) | n/a |
 | Training stochasticity — LightGBM | same cfg, same seed | **0.00000** (n=14 nodes, all exactly 0.60205) | n/a |
-| Training stochasticity — DIN (torch) | same cfg, **same seed** | **σ ≈ 0.00025**, range 0.00110 (n=13) | yes |
+| Training stochasticity — DIN (torch) | same cfg, **same seed** | **σ ≈ 0.00025**, observed range up to 0.00163 | yes |
 | **Validation-sample noise** | paired user-bootstrap SE of a primary *delta* | **σ ≈ 0.0008–0.0010** | **NO** |
 | Cross-seed generalisation | published FM test std | 0.0008 | partly |
 
@@ -300,14 +300,14 @@ is **not** reported as a finding: it is one marginal hit among 12 simultaneous c
 rate chance produces. Round 2 of the sequential ladder therefore has nothing to eliminate, and the
 ladder correctly stops rather than spending 30 more trainings chasing noise.
 
-### A self-correction, recorded rather than quietly dropped
+### A superseded measurement, kept rather than deleted
 
-An earlier version of this analysis claimed, from 8 historical runs that happened to contain both arms,
-that `aux[click,like]` hurts DIN+BPR — **worse in 8/8 runs, paired mean −0.00037, SE 0.00009,
-t = −4.16**. That measurement was real, but it was taken on the **pre-chronological cache and an older
-code state**. The compatibility rule built into `agent/ledger.py` says entries must not be pooled
-across a cache or code change — and applying that rule to our own earlier claim, **it does not carry
-forward.** It is recorded here as history, not as current evidence.
+Eight historical runs that happen to contain both arms indicate that `aux[click,like]` hurts DIN+BPR —
+**worse in 8/8 runs, paired mean −0.00037, SE 0.00009, t = −4.16**. The measurement is real, but it was
+taken on the **pre-chronological cache and an older code state**. The compatibility rule in
+`agent/ledger.py` forbids pooling entries across a cache or code change, and that rule binds this
+result exactly as it binds any other: **it does not carry forward.** It is recorded here as history,
+not as current evidence.
 
 Two independent observations still lean negative and are worth keeping:
 
@@ -328,7 +328,7 @@ repetitions on valid.
 
 ---
 
-## 9. The holdout leak that was open
+## 9. Label leakage: the risk and the containment
 
 **[MEASURED]** `is_click` correlates **0.7605** with `long_view` on train (0.7515 on valid), and
 `P(long_view=1 | is_click=0) = 0.0026`. Ranking the validation set **by `is_click` alone** scores:
@@ -341,35 +341,36 @@ repetitions on valid.
 
 That is **58.8% of the entire remaining headroom above FM**, with no training at all.
 
-**[VERIFIED]** Until this was closed, `runs/_cache/test_y.npy` and
-`runs/_cache/aux/{valid,test}_aux.npy` sat inside the directory handed to every block as
-`bundle.cache_dir`, and `numpy` is on the executor's import allowlist — one `np.load` away.
+**[VERIFIED]** That score is reachable without a model. `numpy` is on the executor's import allowlist,
+so any label-derived array left inside the directory handed to every block as `bundle.cache_dir` —
+`test_y.npy`, `aux/{valid,test}_aux.npy` — is one `np.load` away from an agent-written block.
 
 **[LITERATURE]** This is not hypothetical. METR observed explicit reward hacking in **39 of 128** o3
 runs on RE-Bench (30.4%) with no prompting to cheat; MLE-bench and the reward-hacking agent benchmarks
 report the same failure mode.
 
-**Resolution.** Label-derived arrays moved to a sibling `runs/_holdout/`; `load_aux` refuses non-train
-splits; a build-time assertion fails the run if they reappear; a static guard rejects the relevant path
-literals and `open`/`eval`/`exec`; a tripwire quarantines any node above 0.70.
+**Containment.** Label-derived arrays live in a sibling `runs/_holdout/`, never in `bundle.cache_dir`;
+`load_aux` refuses non-train splits; a build-time assertion fails the run if they reappear; a static
+guard rejects the relevant path literals and `open`/`eval`/`exec`; a tripwire quarantines any node
+above 0.70 — calibrated directly on the 0.7466 above.
 See [SYSTEM.md §8](SYSTEM.md#8-leakage--integrity-protections).
 
-**A retired claim.** Earlier documentation described the guard as making label access *"physically
-impossible."* That was **overstated** and is withdrawn. The accurate claim is layered and is stated as
-such in SYSTEM.md.
+**What is and is not claimed.** The containment is layered, not absolute. *"Label access is physically
+impossible"* would be stronger than these five mechanisms support, and is deliberately not claimed;
+SYSTEM.md states the guarantee in the exact form the code delivers.
 
 ---
 
-## 10. Sequence chronology: a corrected guarantee
+## 10. Sequence chronology and the temporal guarantee
 
-**The old claim.** Earlier documentation stated that temporal safety was "structural: we process rows
-in global time order."
+**The property that must hold.** A row's history snapshot may contain only events that happened before
+it. Nothing about the raw data delivers that for free.
 
-**[MEASURED] It was not true.** `data.load()` does not sort — it appends rows in CSV order and filters
-by date — and the KuaiRand logs are not time-ordered within a user. On
+**[MEASURED] Row order is not time order.** `data.load()` does not sort — it appends rows in CSV order
+and filters by date — and the KuaiRand logs are not time-ordered within a user. On
 `log_standard_4_22_to_5_08_pure.csv`: **47,742 contiguous user runs for 25,877 users**, and **18,763
-per-user `time_ms` inversions**. Replaying the old construction, the share of rows whose "prior"
-history contained a **later-dated** item was:
+per-user `time_ms` inversions**. Under a row-order construction, the share of rows whose "prior"
+history contained a **later-dated** item is:
 
 | split | rows | rows with a future item in history |
 |---|---:|---:|
@@ -377,13 +378,14 @@ history contained a **later-dated** item was:
 | valid | 124,909 | **20.89%** |
 | test | 170,588 | **31.54%** |
 
-With ids-only histories the damage was bounded (video ids carry no label, and no row's history crossed
-a split boundary), so it did not invalidate published scores — but it **did** invalidate the stated
-guarantee, and it was a hard blocker for §11.
+With ids-only histories the damage is bounded — video ids carry no label, and no row's history crosses
+a split boundary — so scores computed that way are not themselves invalid. The temporal *guarantee*
+is, and §11 cannot be evaluated at all without it.
 
-**[MEASURED] After the fix**: histories are built in true `(user, time_ms)` order and independently
-re-verified by recomputing expected histories from the raw logs — **0 violations on all three splits**,
-400 sampled rows each, plus exact agreement of sampled histories with an independent rebuild.
+**[MEASURED] Under the chronological build**: histories are built in true `(user, time_ms)` order and
+independently re-verified by recomputing expected histories from the raw logs — **0 violations on all
+three splits**, 400 sampled rows each, plus exact agreement of sampled histories with an independent
+rebuild.
 
 **A second, smaller finding.** `date` and `time_ms` disagree at the split boundary: **28 test-dated
 rows carry timestamps earlier than the last valid row** (the logs' `date` is a local calendar day; the
@@ -464,9 +466,9 @@ The mechanism is real and literature-supported, but **this benchmark's offline s
 the feedback it needs at scoring time**: only 52% of a test row's history has a usable outcome. The
 capability remains implemented, tested and leak-safe; **`use_fb` defaults to OFF**.
 
-**A roadmap prediction disproven.** This was previously called "the top new lever" and the best
-candidate for gains beyond +0.005. The measurement contradicts it. It is corrected here rather than
-re-argued. Cost of finding out: ~4 minutes of GPU.
+**A prior expectation disproven.** On the literature alone this was the most promising unexplored
+lever and the best candidate for gains beyond +0.005. The measurement says otherwise, and the
+measurement is what is reported. Cost of finding out: ~4 minutes of GPU.
 
 **Next discriminating test [PROPOSED]:** condition on feedback *recency*, and evaluate on the
 random-exposure split where per-user impression counts are 5× higher (§15).
@@ -504,11 +506,11 @@ Eight random 50/50 user splits, weights tuned on half A and evaluated on half B:
 
 **Roughly half of a naively reported ensemble gain is weight-tuning overfit.**
 
-**The reporting procedure was corrected as a result.** An earlier proposal used greedy selection scored
-on a "holdout" half and then reported that half's number — but a subset consulted once per greedy step
-to choose members is a *selection* set, and reporting on it is biased by exactly the mechanism above.
-The implemented procedure is a user-level K-fold cross-validation of the whole assembly procedure, with
-four data roles never conflated ([SYSTEM.md §15](SYSTEM.md#15-portfolioensemble-machinery)).
+**This is why the reporting procedure has the shape it does.** Greedy selection scored on a "holdout"
+half and then reported on that same half is biased by exactly the mechanism above: a subset consulted
+once per greedy step to choose members is a *selection* set, not a held-out one. The implemented
+procedure is instead a user-level K-fold cross-validation of the whole assembly procedure, with four
+data roles never conflated ([SYSTEM.md §15](SYSTEM.md#15-portfolioensemble-machinery)).
 
 **Live run result [MEASURED]:** tuned-on-all-valid **0.60463** (optimistic) vs honest 5-fold CV
 **0.60409 ± 0.00141**; CV gain over the best single member **+0.00064 ± 0.00051**. Note the gain is
@@ -556,7 +558,7 @@ $\hat r_v=\frac{\text{pos}_v+\alpha\bar r}{\text{imp}_v+\alpha}$ (smoothed, $\al
 author rate, log item/author impression counts, log duration, `tab`, and 16 global engagement columns
 z-scored on train. No current-row `play_time` — that is the label's source.
 
-**It was un-tunable, and that was costly.** **[MEASURED]** All 14 LightGBM nodes ever run scored
+**It was un-tunable, and that was costly.** **[MEASURED]** All 13 LightGBM nodes in the run history scored
 **exactly 0.60205, std 0.00000**, because `gbm.train_ranker` read only `cfg.seed` and hardcoded every
 hyper-parameter. The agent could not tune the member with the *largest* ensemble marginal contribution.
 Hyper-parameters now come from the `cfg_ext.json` sidecar; defaults reproduce 0.60205 exactly. A first
@@ -579,8 +581,8 @@ and the reason the dataset exists. **[LITERATURE]**
 * **E2 — popularity down-weighting.** `train_np._ips_weights` computes $w \propto 1/\sqrt{\text{freq}(item)}$,
   mean-normalised. **This is inverse-popularity weighting, not inverse propensity.** A true IPS
   estimator needs $1/P(\text{exposure}\mid u,\text{context},\text{policy})$, and the square root makes it
-  not even an unbiased popularity correction. Earlier documentation over-described it as IPS; that is
-  corrected here. **[VERIFIED]**
+  not even an unbiased popularity correction. The function name `_ips_weights` overstates what it
+  computes; the text above is what it does. **[VERIFIED]**
 * **E3 — true propensity / SNIPS correction [PROPOSED].** Estimate $P(\text{exposure})$ from the random
   log, then apply self-normalised weights. Genuinely novel for this benchmark; not built.
 
@@ -605,7 +607,7 @@ deliberately excluding seed — seeds are repetitions, not arms).
 
 **Compatibility is enforced, and it is load-bearing.** Pooling requires the same `cache_version` *and*
 the same `code_state` hash. Pooling incompatible results is worse than not pooling: it is exactly what
-produced the retracted t = −4.16 claim in §8. At the time of writing the ledger holds 14 entries and
+produced the retracted t = −4.16 claim in §8. At the time of writing the ledger holds 19 entries and
 **0 are compatible** with the current cache and code state — the guard correctly refusing to pool
 across the v6→v10 cache rebuilds and the implementation changes.
 
@@ -622,7 +624,7 @@ accumulated usable cross-run evidence in this project's lifetime.
 
 | Direction | Verdict | Evidence |
 |---|---|---|
-| **Softmax-CE (listwise, nDCG surrogate)** | **Rejected — statistically supported negative** | 0.59971, *below* baseline (n=13, std 0.00000). Live run: Δ−0.00391 vs the BPR champion, P(Δ>0)=0.00. The bare-ID FM memorises each user's within-group order and overfits fast (best epoch ~2). Half the loss↔metric thesis fails, and that is a finding. **[MEASURED]** |
+| **Softmax-CE (listwise, nDCG surrogate)** | **Rejected — statistically supported negative** | 0.59971, *below* baseline (n=14, std 0.00000). Live run: Δ−0.00391 vs the BPR champion, P(Δ>0)=0.00. The bare-ID FM memorises each user's within-group order and overfits fast (best epoch ~2). Half the loss↔metric thesis fails, and that is a finding. **[MEASURED]** |
 | **Behavior-aware history** | **Rejected — negative under honest evaluation** | §11 |
 | **MMoE / PLE expert routing** | **Not built — evidence points away** | §8 |
 | **MCTS over pipeline configs** | **Rejected — wrong tool for the budget** | Each node is a real training run; under the official rule a run ends after ~4–6 experiments, far too few for rollouts and backups to produce reliable value estimates. Best-first + ε-exploration extracts more signal per evaluation. **[LITERATURE + VERIFIED]** |
@@ -631,7 +633,7 @@ accumulated usable cross-run evidence in this project's lifetime.
 | **Raising embedding size `k` for its own sake** | **Rejected — organizer-proven dead end** | |
 | **A single blended loss (α·BPR + (1−α)·softmax-CE)** | **Deprioritised** | Once softmax-CE proved to overfit, diversity is captured better by *ensembling* an FM, a DIN and a LightGBM than by blending two FM losses. |
 | **Live web search per iteration (MLE-STAR style)** | **Deferred** | A curated lever playbook in the Proposer prompt is cheaper and encodes the organizer dead-ends so no iteration is wasted. |
-| **1B-parameter recommenders, industrial RL, large generative RecSys** | **Rejected** | Incompatible with the compute contract; Feasibility is scored on tokens and wall-clock. |
+| **1B-parameter recommenders, industrial RL, large generative RecSys** | **Rejected** | Incompatible with the compute contract — a complete run has to fit inside the token and wall-clock budget. |
 | **A learned second-stage reranker over model scores** | **Deferred** | It stacks a second layer of valid-set selection on top of the +0.00072 optimism already measured in §12. |
 
 ---

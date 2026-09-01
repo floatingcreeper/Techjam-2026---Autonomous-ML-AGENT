@@ -4,18 +4,18 @@
 wanted from the SAME trained model:
 
   * `test` -- so the submitted predictions come from the same instance whose validation predictions
-    drove model and portfolio selection. docs/SYSTEM.md §18 (model identity at finalization) measured why this matters: re-training a
+    drove model and portfolio selection. docs/EN/SYSTEM.md §18 (model identity at finalization) measured why this matters: re-training a
     DIN produces a genuinely different model (rank correlation 0.926, primary differing by 0.00042),
     so the old finalize-time retrain broke the best-checkpoint invariant for torch families.
-  * `rand` -- the random-exposure surface (Lever E / docs/RESEARCH.md §15), reported as a SECOND scientific surface
+  * `rand` -- the random-exposure surface (Lever E / docs/EN/RESEARCH.md §15), reported as a SECOND scientific surface
     and never as the competition target.
 
 `--extra-split test` is passed on every node run, and the infer block writes the rand array itself as
 a side effect. The node directory is recoverable from the block module's `__file__` because
 `run_node._load_block` loads blocks with `importlib.util.spec_from_file_location`.
 
-This routes AROUND the frozen runner rather than through it -- the same pattern as F5 (subsampled
-cache) and F6 (load-time label withholding).
+This routes AROUND the frozen runner rather than through it -- the same pattern as the subsampled
+debug cache and load-time label withholding (docs/EN/SYSTEM.md §3).
 """
 from __future__ import annotations
 

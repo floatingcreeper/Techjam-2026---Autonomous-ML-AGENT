@@ -15,11 +15,9 @@ class Budget:
     `eps` and `N` are the organizer's convergence rule, read verbatim from
     `baseline_scores.json -> convergence_rule` ({"epsilon": 0.002, "N": 3}).
 
-    The repository previously shipped `N = 6`. the pre-consolidation design notes records that as a deliberate
-    2A call ("do NOT inflate to 15-20"), but the effect was still a deviation in the LOOSENING
-    direction: N=6 requires 7 scored nodes without a 0.002 improvement before converging, N=3 requires
-    4. `docs/PROBLEM_STATEMENT.pdf` is an image-only scan and cannot arbitrate, so the JSON artifact
-    is authoritative. Restored to 3. See docs/EN/SYSTEM.md §16.
+    Any larger `N` LOOSENS the rule rather than tightening it: N=6 requires 7 scored nodes without a
+    0.002 improvement before converging, N=3 requires 4. `docs/PROBLEM_STATEMENT.pdf` is an image-only
+    scan and cannot arbitrate, so the JSON artifact is authoritative. See docs/EN/SYSTEM.md §16.
 
     `max_iter` is a HARD CAP on executed experiments and `wall_clock_hours` a HARD BACKSTOP -- neither
     is something the agent should try to spend. Convergence is expected to fire first.
@@ -89,23 +87,23 @@ class Config:
     runs_dir: str = "runs"
     seed: int = 0
     gpu: str = "auto"                 # auto | on | off
-    # F5 -- debug-first sample gate (torch nodes)
+    # debug-first sample gate (torch nodes) -- docs/EN/SYSTEM.md §17
     debug_gate: bool = True
     debug_train_n: int = 20000
     debug_other_n: int = 10000
     debug_epochs: int = 2
-    # F4 -- multi-seed re-eval. Reserved for STOCHASTIC families only (fm/lgbm have std 0.00000 at a
+    # multi-seed re-eval. Reserved for STOCHASTIC families only (fm/lgbm have std 0.00000 at a
     # fixed seed, so re-seeding them measures nothing a paired bootstrap does not measure for free).
     recheck: bool = True
     recheck_seeds: tuple = (1, 2)
     recheck_top_k: int = 3
-    # F3 -- cross-run champion resume
+    # cross-run champion resume
     resume: bool = False
     champion_dir: str = "runs/_champion"
     # cross-run evidence ledger (docs/EN/SYSTEM.md §14)
     ledger_path: str = "runs/_ledger.jsonl"
     use_ledger: bool = True
-    # 3B -- Lever E unbiased-exposure eval, reported as a SECOND surface (docs/EN/RESEARCH.md §15)
+    # Lever E unbiased-exposure eval, reported as a SECOND surface (docs/EN/RESEARCH.md §15)
     unbiased_eval: bool = False
     # structured event stream for the Research Console (docs/EN/SYSTEM.md §19)
     events: bool = True

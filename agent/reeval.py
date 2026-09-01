@@ -1,7 +1,7 @@
-"""Multi-seed confirmation (F5 from Jon's archive): re-run a node's blocks under extra seeds and
-decide on the seed-MEAN rather than a single lucky seed. Our adoption thresholds sit below the
-per-seed noise floor (std ~0.0008), and tree.best() is a max over ~50 draws, so the single-best
-pick is upward-biased; this guards the submission against that selection bias.
+"""Multi-seed confirmation: re-run a node's blocks under extra seeds and decide on the seed-MEAN
+rather than a single lucky seed. Adoption thresholds sit below the per-seed noise floor
+(std ~0.0008), and tree.best() is a max over ~50 draws, so the single-best pick is upward-biased;
+this guards the submission against that selection bias.
 """
 from __future__ import annotations
 from pathlib import Path

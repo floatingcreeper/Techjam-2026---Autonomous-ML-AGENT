@@ -1,6 +1,6 @@
 """Lever B data -- per-user behavior sequences, cached, TRUE chronological order.
 
-The defect this replaces (docs/RESEARCH.md §10 (sequence chronology))
+The defect this replaces (docs/EN/RESEARCH.md §10 (sequence chronology))
 -----------------------------------------------
 The previous version claimed temporal safety was "structural: we process rows in global time order".
 `data.load()` does not sort -- it appends rows in CSV order and filters by date -- and the KuaiRand
@@ -41,7 +41,7 @@ from data import SPLITS                       # frozen: date ranges only, safe t
 SPLIT_ORDER = ("train", "valid", "test")
 LOG_FILES = ("log_standard_4_08_to_4_21_pure.csv", "log_standard_4_22_to_5_08_pure.csv")
 
-# Feedback states for a HISTORY event. Deliberately small and interpretable (docs/RESEARCH.md §11).
+# Feedback states for a HISTORY event. Deliberately small and interpretable (docs/EN/RESEARCH.md §11).
 FB_PAD = 0          # padding
 FB_SKIP = 1         # not clicked, or watched a negligible fraction
 FB_SHORT = 2        # short view
@@ -234,7 +234,7 @@ def load_split(cache_dir, name):
 
 
 def load_fb(cache_dir, name):
-    """Per-history-event feedback states (Lever B behavior-aware history, docs/RESEARCH.md §11)."""
+    """Per-history-event feedback states (Lever B behavior-aware history, docs/EN/RESEARCH.md §11)."""
     return np.load(Path(cache_dir) / "seq" / f"{name}_fb.npy")
 
 

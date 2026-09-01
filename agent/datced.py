@@ -4,9 +4,10 @@ Encodes the fixed harness's data.load()/data.encode() output ONCE into memory-ma
 .npy files under runs/_cache, so every node loads it in well under a second instead of
 re-reading 106 MB of CSV. This is what keeps a 50-iteration run inside the wall-clock budget.
 
-M0 scope: base 5-field encoded arrays for train/valid/test. Sequences, negative-sampling
-index, aux labels, and the random-exposure log are added in later milestones (they extend
-this cache without changing the base layout).
+The base layer is the 5-field encoded arrays for train/valid/test. The sibling caches -- seq/,
+gbm/, aux/, rand/ -- extend it without changing that layout, and every array stays per-row
+aligned, which is what makes the debug subsample and every cross-cache join correct.
+See docs/EN/SYSTEM.md §7.
 """
 from __future__ import annotations
 import json
@@ -133,7 +134,7 @@ def load_bundle(cache_dir: str) -> Bundle:
     for name in SPLITS:
         X[name] = np.load(cache / f"{name}_X.npy", mmap_mode="r")
         users[name] = np.load(cache / f"{name}_u.npy", mmap_mode="r")
-        if name != "test":                 # F6 guard: never expose hidden-test labels to agent blocks
+        if name != "test":                 # guard: never expose hidden-test labels to agent blocks
             y[name] = np.load(cache / f"{name}_y.npy", mmap_mode="r")
     rand_dir = cache / "rand"              # Lever E: unbiased-exposure split (public labels -> kept)
     if (rand_dir / "rand_X.npy").exists():

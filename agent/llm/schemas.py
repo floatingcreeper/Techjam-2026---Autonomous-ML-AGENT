@@ -34,8 +34,8 @@ class BlockEdit(BaseModel):
     new_source: str = Field(default="", description="full new source of that one block module; "
                             "empty if implementable is false")
     imports_used: list[str] = Field(default_factory=list)
-    implementable: bool = True        # 1D: false = decline (with `reason`), emit no code
-    reason: str = ""                  # 1D: one sentence -- why it can't be done in this one block
+    implementable: bool = True        # false = decline (with `reason`), emit no code
+    reason: str = ""                  # one sentence -- why it can't be done in this one block
     notes: str = ""
 
 

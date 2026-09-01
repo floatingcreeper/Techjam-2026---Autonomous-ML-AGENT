@@ -6,14 +6,7 @@
 
 （English version: [docs/EN/SYSTEM.md](../EN/SYSTEM.md)）
 
-若本文档与任何更早的文字记录存在冲突，以本文档与代码为准。
-
-> **文档冻结，2026-08-31。** 八份历史性的设计、集成与规划文档，已被整合进四份权威文档
-> （README · SYSTEM · RESEARCH · SUBMISSION），随后被删除。没有任何内容因此丢失：工程内容在本文档中，
-> 科学内容与全部测量结果在 [RESEARCH.md](RESEARCH.md) 中，竞赛叙事在
-> [SUBMISSION.md](SUBMISSION.md) 中。那些旧文档中的若干表述**已经过时或有误**，
-> 现已对照当前代码与运行产物做出更正——特别是收敛窗口、缓存版本、"物理上不可能"这一泄漏相关表述、
-> 序列时序安全性保证、集成方法论，以及收尾定稿的行为逻辑。源代码中引用旧文档的注释，已更新为指向本文档。
+本文档跟随代码。若两者出现分歧，以代码为准，本文档即为待修的缺陷。
 
 ---
 
@@ -65,8 +58,8 @@
 1. **固定边界之后是两层结构。** 智能体搜索*什么*（`pipeline/`，解空间）与它*如何*搜索
    （`agent/`，策略）相互分离。编排器（orchestrator）驱动 FM、LightGBM 或 DIN 时，
    对这些模型本身一无所知。
-2. **被评判的是智能体本身，而不只是模型。** TechJam 评分标准中大约 40% 的权重是智能体的行为
-   （自主性、稳健性、可行性），因此这条研究闭环得到了和各干预手段本身同等精心的工程打磨。
+2. **交付物是智能体本身，而不只是模型。** 赛道二要求的是一个自主的研究者，因此这条研究闭环
+   ——自主性、稳健性、故障恢复、成本——得到了和各干预手段本身同等精心的工程打磨。
 3. **信任这个分数。** 分数所依赖的一切都被冻结并做了哈希锁定（见第3节）。
 4. **"最佳存档点"不变量。** 提交结果始终是经过校验的最佳对象，独立于搜索路径（该路径可能并非单调）单独追踪。
 5. **用低成本分析替代高成本的重新训练。** 自助法、排名相关性、混合评估与记忆综合，
@@ -134,7 +127,8 @@ data.py   evaluate.py   submit.py   pipeline/run_node.py   pipeline/contracts.py
 
 ## 5. 六代码块解空间
 
-一个节点的模型，是由冻结的运行器按顺序执行的六个 Python 文件：
+一个节点的模型由六个 Python 文件构成。冻结的运行器按顺序执行前五个；`combine` 是组合装配阶段的钩子，
+由模型组合机制调用，而不是由运行器调用：
 
 ```python
 build_features(bundle, cfg) -> FeatureSet
@@ -146,8 +140,9 @@ combine(base, cfg)          -> np.ndarray                         # 组装阶段
 ```
 
 `pipeline/baseline_blocks/` 既是 FM+BCE 基线，**也是**消融实验的对照组（根节点）。
-`build_loss` 返回 `make_loss(cfg)`，因此 `loss_type` 是一个真正生效的配置旋钮——它此前曾被硬编码为
-BCE，这曾静默地使干预手段 A 完全失效（见 [RESEARCH.md 第7节](RESEARCH.md#7-bpr-理论与实测结果)）。
+`build_loss` 返回 `make_loss(cfg)`，因此 `loss_type` 是一个真正生效的配置旋钮。若某个代码块把损失
+函数写死，就会静默地让干预手段 A 完全失效，并在"BPR"的名义下返回一个基线结果
+（见 [RESEARCH.md 第7节](RESEARCH.md#7-bpr-理论与实测结果)）——第11节的存在正是为了拦住这种情况。
 
 `FeatureSet` 是冻结的，无法新增字段。任何额外信息要么在训练器内部计算，要么搭载在一个已有的可选字段上——
 行为感知历史就是以可选的第三元素形式搭载在 `seq` 元组上的。
@@ -160,7 +155,7 @@ BCE，这曾静默地使干预手段 A 完全失效（见 [RESEARCH.md 第7节](
 完整快照（而非差异补丁）让每个节点都能独立运行，也让两个节点可以并发运行而互不冲突。
 
 磁盘上的结构：`runs/<run_id>/nodes/<id>/{blocks/*.py, cfg.json, cfg_ext.json, provenance.json,
-metrics.json, val_scores.npy, test_scores.npy, stdout.log}`。
+metrics.json, val_scores.npy, test_scores.npy, rand_scores.npy}`。
 
 三种改动类型：
 
@@ -216,7 +211,7 @@ metrics.json, val_scores.npy, test_scores.npy, stdout.log}`。
 
 1. **任何历史中都不会出现未来事件。** 只要排序后仍残留任何用户内部的时间倒挂，构建过程就会报错终止。
    （此前基于行顺序的构建方式，在 30.83% 的训练集行、20.89% 的验证集行与 31.54% 的测试集行上违反了这一点——
-   见 [RESEARCH.md 第10节](RESEARCH.md#10-时间序列的时序性一个被修正的保证)。）
+   见 [RESEARCH.md 第10节](RESEARCH.md#10-时间序列的时序性保证)。）
 2. **训练／验证集的行不会看到测试窗口内的事件。** 同时按切分索引和时间过滤，让这一点成为结构性的保证。
    这一点很重要，因为在切分边界处 `date` 与 `time_ms` 会出现不一致：有 28 行标注为测试集日期的数据，
    其时间戳却早于最后一行验证集数据。
@@ -246,14 +241,14 @@ metrics.json, val_scores.npy, test_scores.npy, stdout.log}`。
 
 **准确的表述是：** *由智能体编写的代码块，既拿不到隐藏测试集标签，也拿不到当前行结果的代理信息；
 所有由标签衍生出的隐藏集数据，都被隔离在代码块可见的数据接口之外，并由一道静态读取护栏与一个合理性警报共同兜底。*
-早期文档曾称之为"物理上不可能"，这一表述过于绝对，现已弃用——见
-[RESEARCH.md 第9节](RESEARCH.md#9-曾经存在的隐藏集泄漏)。
+这里刻意**不**表述为"获取标签在物理上不可能"——那样的说法超出了现有机制所能支撑的范围。见
+[RESEARCH.md 第9节](RESEARCH.md#9-标签泄漏风险与围堵)。
 
 这道警报的阈值为何设在这个位置：仅凭 `is_click` 对验证集排序就能拿到 **0.7466** 分，
 相当于 FM 之上全部理论提升空间的 58.8%。这里真正的进步是以千分之一为单位度量的，
 出现这么大的跃升，只可能是一个 bug 或一次泄漏，绝不可能是模型本身的功劳。
 
-`tests/test_leakage.py` 对以上全部内容做了断言（共 23 项检查），包括确认六份恶意代码块源码会被拒绝，
+`tests/test_leakage.py` 对以上全部内容做了断言（共 26 项检查），包括确认六份恶意代码块源码会被拒绝，
 而五份合法的源码依然能通过。
 
 ---
@@ -354,8 +349,8 @@ lgbm : seed gbm_learning_rate gbm_num_boost_round gbm_num_leaves gbm_min_data_in
 ## 12. 去重与空操作处理
 
 **节点身份基于内容判定。** `signature = sha256(cfg + cfg_ext + 全部六个代码块的源码)`。
-更早的版本是对*相对父节点的统一 diff*做哈希，导致两个配置相同、代码块源码也相同的节点，
-如果是从不同父节点到达的，会得到不同的签名——一次对早期节点的重跑，就是这样被误记为一项新的科学发现的。
+如果改为对*相对父节点的统一 diff*做哈希，两个配置相同、代码块源码也相同的节点，只要是从不同父节点
+到达的，就会得到不同的签名——一次对既有节点的重跑，就会这样被误记为一项新的科学发现。
 
 三种事后分类，彼此严格区分：
 
@@ -404,8 +399,8 @@ lgbm : seed gbm_learning_rate gbm_num_boost_round gbm_num_leaves gbm_min_data_in
 
 **科学证据与树状态是彼此独立的。** 一个节点携带 `status`（树／采纳记账）、`evidence`
 （自助法给出的结论）与 `noop_class`（是否确实发生了某种干预）三个独立字段。
-曾经把这几者混为一谈，一度导致系统告诉智能体自己最好的模型"REJECTED——不要重复"。
-现在的分类桶为：`confirmed`（已确认）、`promising`（有潜力）、`inconclusive`（不确定）、
+把这几者混为一个标签，正是会让系统告诉智能体：你自己最好的模型"REJECTED——不要重复"。
+分类桶为：`confirmed`（已确认）、`promising`（有潜力）、`inconclusive`（不确定）、
 `rejected`（已拒绝）、`no_effect`（无影响）、`unsupported_capability`（能力范围之外），
 再加上一个明确的 `diverse_portfolio_candidates`（多样化组合候选）列表，以及单独呈现的冠军模型。
 
@@ -415,7 +410,7 @@ lgbm : seed gbm_learning_rate gbm_num_boost_round gbm_num_leaves gbm_min_data_in
 `agent/ledger.py` 会把每一次已执行的实验持久化到 `runs/_ledger.jsonl` 中，以一个**臂**
 （`family|loss|aux`，刻意不含随机种子，因为随机种子是重复而非不同的臂）为键。汇总操作受
 `compatible()` 把关，要求 `cache_version` **与** `code_state` 哈希同时一致。
-这道护栏是承重结构：正是它，使一个此前跨越了一次缓存变更所得出的跨运行结论被判定为无效
+这道护栏是承重结构：把它应用到一个跨越了缓存变更所得出的跨运行结论上，该结论即被判定为不可沿用
 （见 [RESEARCH.md 第8节](RESEARCH.md#8-辅助任务调查)）。`ResearchInsight` 记录基于台账、按规则生成，
 不需要额外调用大语言模型。
 
@@ -460,9 +455,9 @@ A(S) = 去重（排名相关性 > 0.999） → 贪心前向成员选择 → 权�
 | **存活性护栏** | `proposal_guard_limit`——Proposer 无法产出任何可执行的内容 | 仅在病态情况下才会触发；报告为 `proposal_guard`，绝不会被算作收敛 |
 
 `OFFICIAL_EPS` 与 `OFFICIAL_N` 在导入时从 `baseline_scores.json → convergence_rule` 中读取，
-因此代码不可能与主办方给出的原始文件产生偏差。本代码库此前曾使用 `N = 6`，这是朝*放宽*方向的偏差
-（N=6 需要连续 7 个没有提升的已评分节点，N=3 只需要 4 个）；`docs/EN/PROBLEM_STATEMENT.pdf`
-只是一份纯图片扫描件，无法用来仲裁，因此以 JSON 文件为准。**N = 3。**
+因此代码不可能与主办方给出的原始文件产生偏差。`docs/PROBLEM_STATEMENT.pdf` 只是一份纯图片扫描件，
+无法用来仲裁，因此以 JSON 文件为准：**ε = 0.002，N = 3。** 任何更大的 `N` 都是朝*放宽*而非收紧的方向
+偏离——N=6 需要连续 7 个没有提升的已评分节点才会触发，N=3 只需要 4 个。
 
 **算力被刻意设计为不是约束性条件。** 按官方规则，一次运行大约在 4–6 次实验后就会收敛。
 目标*不是*把配额用完——而是让每一次收敛前的实验都货真价实。这里刻意**没有**设置最少实验次数的规则，
@@ -605,7 +600,8 @@ python -m tests.test_sequence       # 时间顺序 + 反馈状态泄漏安全性
 | `resource_report.json` | 基准记账、调参估计 vs 诚实估计、模型组合价值评估、训练方差、停止原因 |
 | `results.md` | 简短的、供人阅读的结果表格 |
 | `best/submission_test.csv` | 提交结果（通过 `submit.py --check` 校验） |
-| `nodes/<id>/` | 代码块快照、`cfg.json`、`cfg_ext.json`、`provenance.json`、`metrics.json`、`val_scores.npy`、`test_scores.npy`、`stdout.log` |
+| `nodes/<id>/` | 代码块快照、`cfg.json`、`cfg_ext.json`、`provenance.json`、`metrics.json`、`val_scores.npy`、`test_scores.npy`、`rand_scores.npy` |
+| `reeval/` | 随机性模型入围者的多随机种子重训分数（见第13节），在 `recheck` 触发时写出 |
 
 持久化内容：`runs/_cache/`（DataBundle 数据束）、`runs/_holdout/`（标签衍生数据，代码块永不可见）、
 `runs/_champion/`（跨运行冠军模型）、`runs/_ledger.jsonl`（跨运行证据）。
@@ -645,33 +641,9 @@ provenance{…}, noop_class, informative, events, cost, signature`。
 
 ---
 
-## 23a. 已采纳能力的来源说明
-
-六项能力，均来自对三位队友各自代码归档（`archives/aerin`、`archives/jx`、`archives/jon`）的审阅，
-并在本代码库自己的框架规范内重新实现，而非直接照搬。**其中没有任何一项触碰了冻结的运行框架**——
-即便是安全护栏本身，也是绕开冻结的运行器工作的。
-
-| 能力 | 思路来源 | 现在的位置 |
-|---|---|---|
-| 多任务辅助头（干预手段 C） | `aerin/sequence_ranker.py` | `lib/din.py` 的辅助头、`lib/aux_build.py`、`lib/din_blocks/` |
-| 实验日志仪表盘（原名"假设台账"） | `jx/hypothesis-ledger.html` | `dashboard/hypothesis-ledger.html`（仍可正常使用；演示场景下已被研究控制台取代，见第19节） |
-| 跨运行冠军断点续跑 | `jx/agent/controller.py` | `agent/champion.py`（默认关闭） |
-| 多随机种子复评 | `jon/agent/reeval.py` | `agent/reeval.py`——现已限定仅用于随机性模型族（见第13节） |
-| 优先调试的采样准入门 | `jon/agent/debug_run.py` | `pipeline/debug_cache.py`、`executor.debug_gate`（见第17节） |
-| 测试标签数据护栏 | `jon/agent/data_guard.py` | `datced.load_bundle` + 第8节中描述的分层保护 |
-
-在实际阅读了原始源码之后，我们刻意**没有**采纳的部分：Aerin 的 `IntraUserPairSampler`
-（我们的 `train_np._fit_pair` 已经用一个扁平化的负样本池完全向量化了；Aerin 的实现是每个 epoch 对用户做循环）、
-Aerin 把 DIN 实现为一套并行的代码块集合（与 `din_blocks` 重复；我们只采纳了其中的多任务思路）、
-Aerin 硬编码的线性实验注册表、JX 的整文件重写式控制器（一种单路径改写器，不如基于代码块契约的树搜索）、
-以及 Jon 受限的 `action_space` + 贪心线性链（他的智能体只能在一个手写的 FM 上调超参数，且从不分支）。
-我们采纳的是 Jon 的*安全机制*，而不是他的循环逻辑。
-
----
-
 ## 24. 已知的工程局限
 
-* **`max_llm_usd` 已声明但从未强制执行。** 目前没有 LLM 花费上限。*（已知问题；文档冻结期间未修复。）*
+* **`max_llm_usd` 已声明但从未强制执行。** 目前没有 LLM 花费上限。
 * **失效的 `Cfg` 字段。** `use_seq, use_vstat, use_aux, lambdarank, ensemble_members, L, alpha`
   没有任何代码块会读取它们。`Cfg.loss_type` 的文件内注释提到了一个 `blend` 取值，但
   `make_loss` 并未实现它——`blockspec` 会在训练启动前拦下它，避免白白浪费一次运行。

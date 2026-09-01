@@ -417,7 +417,7 @@ def _propose_executable(cfg, driver, run_dir, tree, mem, ev_log, rng, it, phase,
             cost["input_tokens"] += u2.input_tokens
             cost["output_tokens"] += u2.output_tokens
             if not getattr(be, "implementable", True):
-                # 1D honest rejection: a capability the harness genuinely lacks. Research information
+                # Honest rejection: a capability the harness genuinely lacks. Research information
                 # (it constrains the search space), not a failure and not a scientific result.
                 ev_log.emit(events.GUARD,
                             f"Coder declined honestly: {be.reason}", node_id=f"n{it}",
@@ -517,7 +517,7 @@ def _iterate(cfg, driver, run_dir, tree, mem, ev, ev_log, rng, it, phase, st,
     node_events = []
     res = None
     wc = 0.0
-    # F5 debug-first gate: cheap crash/sanity check on a subsample before the full run (torch nodes).
+    # debug-first gate: cheap crash/sanity check on a subsample before the full run (torch nodes).
     if cfg.debug_gate and ncfg.model_type in ("din", "bst"):
         dbg = executor.debug_gate(blocks, ncfg, cfg.cache_dir, str(Path(node_dir) / "_dbg"),
                                   n_train=cfg.debug_train_n, n_other=cfg.debug_other_n,

@@ -2,7 +2,7 @@
 
 The roles (Proposer/Coder/Ablation/Reflector) talk only to this interface, so the backend
 is swappable. MockDriver replays a scripted list of moves -- it exercises the ENTIRE agent
-loop offline, with no network and no Gemini credits, which is how M3/M4/M5 are tested.
+loop offline, with no network and no Gemini credits, which is how `--mock` and `--faults` are run.
 """
 from __future__ import annotations
 from abc import ABC, abstractmethod

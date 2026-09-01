@@ -107,7 +107,7 @@ def run_node(blocks_dir, out_dir, cfg_path, cache_dir="runs/_cache",
 
 
 def debug_gate(blocks_dir, cfg, cache_dir, scratch_dir, n_train=20000, n_other=10000, epochs=2):
-    """Fast-fail sample run (F5) on a subsampled cache via the existing frozen runner. Returns a
+    """Fast-fail sample run on a subsampled cache via the existing frozen runner. Returns a
     metrics dict on success or a Failure the caller routes to recovery -- never runs the full pipeline."""
     from pipeline import debug_cache
     dbg_cache = debug_cache.build(cache_dir, str(Path(scratch_dir) / "cache"), n_train, n_other, seed=cfg.seed)

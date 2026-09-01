@@ -1,8 +1,9 @@
 """Agent CLI entrypoint.
 
-    python -m agent.run --smoke     # M0 gate: build cache + reproduce the FM baseline
-
-The full autonomous loop (`python -m agent.run`) is wired up at milestone M4.
+    python -m agent.run --smoke     # smoke gate: build cache + reproduce the FM baseline
+    python -m agent.run --mock      # the full loop offline via the scripted MockDriver
+    python -m agent.run --faults    # fault injection: crash, recover, still finalize
+    python -m agent.run             # LIVE (needs GEMINI_API_KEY or .env.local)
 """
 from __future__ import annotations
 import argparse, json, subprocess, sys, time
@@ -92,7 +93,7 @@ def main():
     ap.add_argument("--config", default="agent/config.yaml")
     ap.add_argument("--smoke", action="store_true", help="M0 gate: reproduce the FM baseline")
     ap.add_argument("--mock", action="store_true", help="run the loop with the scripted MockDriver (no API)")
-    ap.add_argument("--faults", action="store_true", help="run the fault-injection script (M5 robustness)")
+    ap.add_argument("--faults", action="store_true", help="run the fault-injection robustness script")
     ap.add_argument("--max-iter", type=int, default=None, help="override the iteration cap")
     a = ap.parse_args()
     cfg = Config.load(a.config)

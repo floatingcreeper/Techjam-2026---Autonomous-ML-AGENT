@@ -27,11 +27,11 @@ class DIN(nn.Module):
     def __init__(self, V, fm_dim, k=16, att_hid=32, mlp_hid=64, n_aux=0, n_fb=0):
         super().__init__()
         self.emb = nn.Embedding(V + 2, k, padding_idx=0)     # video: seq + target
-        # Lever B behavior-aware history (docs/RESEARCH.md §11 (behavior-aware history)): each history event carries WHAT THE
+        # Lever B behavior-aware history (docs/EN/RESEARCH.md §11 (behavior-aware history)): each history event carries WHAT THE
         # USER DID to it (skip / short / normal / long_view / explicit positive / unknown), not just
         # which video it was. In an autoplay short-video feed an impression is not a positive and a
         # skip is meaningful negative evidence, so identical-looking histories can mean opposite
-        # things. Requires the chronological cache (docs/RESEARCH.md §10) -- otherwise this would carry FUTURE
+        # things. Requires the chronological cache (docs/EN/RESEARCH.md §10) -- otherwise this would carry FUTURE
         # outcomes into 21-32% of rows.
         self.fb = nn.Embedding(n_fb, k, padding_idx=0) if n_fb else None
         self.base = nn.Embedding(fm_dim, k)                  # base 5 fields (FM offset space)
@@ -134,7 +134,7 @@ def fit_din(model, feats, cfg, dev, fb_drop=0.0):
             # 100% known history outcomes but sees only ~82% (valid) / ~52% (test) at scoring time.
             # Measured: that train/serve mismatch made behavior-aware history a NEGATIVE result
             # (-0.00166). Randomly masking states to FB_UNKNOWN during training makes the training
-            # distribution resemble inference. See docs/RESEARCH.md §11 (behavior-aware history).
+            # distribution resemble inference. See docs/EN/RESEARCH.md §11 (behavior-aware history).
             if train_mode and fb_drop > 0.0:
                 keep = torch.rand(f.shape, device=dev) >= fb_drop
                 f = torch.where(keep | (s == 0), f, torch.full_like(f, FB_UNKNOWN))

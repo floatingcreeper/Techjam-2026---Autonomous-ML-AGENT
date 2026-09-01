@@ -43,8 +43,12 @@ def _loop(model, feats, cfg, epoch_fn):
 
 
 def _ips_weights(Xtr, field=1):
-    """Lever E: inverse item-exposure propensity from train item frequency, normalised to mean 1.
-    Over-exposed (popular) items get down-weighted -- a simple IPS proxy for exposure bias."""
+    """Lever E: w ~ 1/sqrt(train item frequency), normalised to mean 1, so over-exposed (popular)
+    items are down-weighted.
+
+    NOTE the name overstates this: it is INVERSE-POPULARITY weighting, not inverse propensity. A true
+    IPS estimator needs 1/P(exposure | u, context, policy), and the square root makes this not even an
+    unbiased popularity correction. See docs/EN/RESEARCH.md §15 (E2)."""
     items = np.asarray(Xtr[:, field])
     freq = np.bincount(items)[items].astype(np.float32)
     w = 1.0 / np.sqrt(freq + 1.0)

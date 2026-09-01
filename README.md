@@ -26,8 +26,9 @@ purely user-side features carry no signal at all.
 
 Score: `primary = ½(GAUC + nDCG@5)`, computed by a frozen evaluator.
 
-Two numbers govern everything: the **oracle ceiling is ≈0.85, not 1.0** (38% of users are all-positive
-or all-negative, so no model changes their nDCG), and the **paired validation noise floor is σ ≈ 0.0009**.
+Two numbers govern everything: the **oracle ceiling is ≈0.85, not 1.0** (42% of validation users are
+all-positive or all-negative, so no model changes their nDCG), and the **paired validation noise floor
+is σ ≈ 0.0009**.
 Real gains are measured in thousandths, and an agent that cannot tell signal from noise will chase its
 own variance.
 
@@ -120,15 +121,15 @@ LightGBM are deterministic and interpreter-independent, only DIN differs and run
 
 ## Research Console
 
-A live/replay view of the agent's actual research loop, built for the demo. It renders artifacts the
-agent emitted — it never simulates execution.
+A live/replay view of the agent's actual research loop. It renders artifacts the agent emitted — it
+never simulates execution.
 
 ```bash
 python -m agent.console_server        # http://127.0.0.1:8712/
 ```
 
-**▶ Replay** replays a completed run at 1×–12× (no API key, network or GPU — this is what a demo video
-records). **◉ Live** streams events from a running agent.
+**▶ Replay** replays a completed run at 1×–12× (no API key, network or GPU required). **◉ Live**
+streams events from a running agent.
 
 ## Where to read next
 
@@ -138,7 +139,7 @@ static, so pick the language version you want directly.
 
 | Document | For | Contents | 中文 |
 |---|---|---|---|
-| **[docs/EN/SUBMISSION.md](docs/EN/SUBMISSION.md)** | judges & reviewers | The competition narrative: why this is a researcher rather than an AutoML script, results with honest uncertainty, the rejected-breakthrough episode, resource usage, rubric mapping, the 4-minute demo script | [docs/CN/SUBMISSION.md](docs/CN/SUBMISSION.md) |
+| **[docs/EN/SUBMISSION.md](docs/EN/SUBMISSION.md)** | judges & reviewers | The competition narrative: why this is a researcher rather than an AutoML script, results with honest uncertainty, the rejected-breakthrough episode, resource usage, current limitations | [docs/CN/SUBMISSION.md](docs/CN/SUBMISSION.md) |
 | **[docs/EN/SYSTEM.md](docs/EN/SYSTEM.md)** | engineers | How it works now: trust boundary, six-block solution space, cache and leakage architecture, agent internals, config validation, statistical machinery, portfolio assembly, convergence semantics, configuration reference, run artifacts, extension rules, known limitations | [docs/CN/SYSTEM.md](docs/CN/SYSTEM.md) |
 | **[docs/EN/RESEARCH.md](docs/EN/RESEARCH.md)** | reviewers & researchers | The scientific record: metric derivations, the noise model, statistical methodology, every measured finding **including the negative ones**, literature grounding, residual uncertainties, future directions | [docs/CN/RESEARCH.md](docs/CN/RESEARCH.md) |
 | [docs/PROBLEM_STATEMENT.pdf](docs/PROBLEM_STATEMENT.pdf) | reference | The organizer's brief (immutable, English only) | — |

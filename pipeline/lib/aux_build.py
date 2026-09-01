@@ -25,7 +25,7 @@ HOLDOUT_SPLITS = ("valid", "test")
 def build(data_dir, cache_dir, holdout_dir=None, force=False):
     """Build per-row auxiliary labels.
 
-    docs/RESEARCH.md §9: `is_click` correlates 0.75 with `long_view` and
+    docs/EN/RESEARCH.md §9: `is_click` correlates 0.75 with `long_view` and
     P(long_view=1 | is_click=0) = 0.002, so the valid/test aux slices are near-oracle proxies for the
     labels being scored -- ranking valid by `is_click` alone reaches primary 0.7466 against an FM
     baseline of 0.6015 and an oracle ceiling of 0.8484. Only the TRAIN slice is written into the
@@ -73,7 +73,7 @@ def build(data_dir, cache_dir, holdout_dir=None, force=False):
 
 
 def load_aux(cache_dir, name):
-    """Auxiliary labels for a split. Only 'train' is available from the block-visible cache (docs/SYSTEM.md §8)."""
+    """Auxiliary labels for a split. Only 'train' is available from the block-visible cache (docs/EN/SYSTEM.md §8)."""
     fc = Path(cache_dir) / "aux"
     meta = json.loads((fc / "meta.json").read_text())
     allowed = tuple(meta.get("cache_splits", CACHE_SPLITS))

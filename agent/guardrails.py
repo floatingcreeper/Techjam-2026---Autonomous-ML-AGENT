@@ -1,9 +1,10 @@
 """Guardrails.
 
-M0 scope: immutability enforcement. The fixed harness + runner + contracts are hashed
-into agent/frozen.lock; any later mismatch aborts the run, so the agent can never
-(accidentally or otherwise) edit the files the score depends on. Import-allowlist /
-temporal / submission guards are layered on in later milestones.
+Immutability enforcement. The fixed harness + runner + contracts are hashed into
+agent/frozen.lock; any later mismatch aborts the run, so the agent can never (accidentally
+or otherwise) edit the files the score depends on. The import allowlist and holdout read
+guard live in agent/executor.py; the temporal guard in pipeline/lib/seq_build.py; the
+submission check in the frozen submit.py. See docs/EN/SYSTEM.md §3 and §8.
 """
 from __future__ import annotations
 import hashlib, json

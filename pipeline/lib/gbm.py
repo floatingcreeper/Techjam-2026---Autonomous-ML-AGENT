@@ -108,9 +108,9 @@ DEFAULT_PARAMS = {                     # the historical hardcoded configuration,
 def train_ranker(cache_dir, cfg=None, ext=None):
     """Fit the LambdaRank booster.
 
-    docs/RESEARCH.md §14: this function used to read ONLY `cfg.seed`, which is why all 14 LightGBM
+    docs/EN/RESEARCH.md §14: this function used to read ONLY `cfg.seed`, which is why all 14 LightGBM
     nodes ever run scored exactly 0.60205 with std 0.00000 -- the agent could not tune it at all.
-    That mattered because docs/RESEARCH.md §12 measured LightGBM as the member with the LARGEST ensemble marginal
+    That mattered because docs/EN/RESEARCH.md §12 measured LightGBM as the member with the LARGEST ensemble marginal
     contribution (+0.00121) despite the weakest standalone score.
 
     The frozen `Cfg` cannot gain fields, so the hyper-parameters come from the `cfg_ext.json`
